@@ -26,6 +26,9 @@
     function saveState(s){storage.setItem(stateKey,JSON.stringify(s));return s;}
     function maxSeq(entries){return entries.reduce((m,e)=>Math.max(m,Number(e.seq)||0),0);}
 
+    let privacyChecked=false;
+    async function ensurePrivate(){if(!privacyChecked){await mailbox.verifyPrivate();privacyChecked=true;}}
+
     async function readCanonicalRevision(){
       const head=await mailbox.readCanonical();
       if(!head)return null;
@@ -36,6 +39,7 @@
     }
 
     async function bootstrapFromLocal(){
+      await ensurePrivate();
       const existing=await readCanonicalRevision();
       if(existing)return {created:false,...existing};
 
@@ -66,6 +70,7 @@
     }
 
     async function publishLocal(){
+      await ensurePrivate();
       const state=loadState();
       if(!state.baseRevision){
         const canonical=await readCanonicalRevision();
@@ -132,6 +137,7 @@
     }
 
     async function reconcileCloud(){
+      await ensurePrivate();
       const canonical=await readCanonicalRevision();
       if(!canonical)return {ok:false,type:'needs-bootstrap'};
 
@@ -173,6 +179,7 @@
     }
 
     async function pullCanonical(){
+      await ensurePrivate();
       const canonical=await readCanonicalRevision();
       if(!canonical)return {ok:false,type:'needs-bootstrap'};
       const state=loadState();
