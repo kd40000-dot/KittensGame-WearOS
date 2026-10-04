@@ -71,6 +71,7 @@
   function create(opts){
     const deviceId=opts.deviceId;
     const getSave=opts.getSave;
+    const onEntry=opts.onEntry;
     let seq=Number(read(deviceId,'seq',0))||0,armed=false,before=null;
     async function checkpoint(save){
       const s=clone(save||getSave()),text=JSON.stringify(s);
@@ -83,7 +84,9 @@
       const ops=diff(b,a);if(!ops.length)return null;
       const entry={schema:SCHEMA,deviceId,seq:++seq,time:Date.now(),label:label||'interaction',ops};
       const j=journal();j.push(entry);if(j.length>1000)j.splice(0,j.length-1000);
-      write(deviceId,'seq',seq);write(deviceId,'journal',j);return entry;
+      write(deviceId,'seq',seq);write(deviceId,'journal',j);
+      if(onEntry){try{Promise.resolve(onEntry(entry)).catch(function(e){console.warn('Plan A onEntry failed',e);});}catch(e){console.warn('Plan A onEntry failed',e);}}
+      return entry;
     }
     function arm(label){
       if(armed)return;armed=true;before=clone(getSave());
@@ -101,10 +104,355 @@
   global.KittensPlanA={SCHEMA,create,diff,merge};
 })(window);
 
+(function(global){
+  'use strict';
+
+  function branchChanged(branch){
+    return !!(branch && Array.isArray(branch.entries) && branch.entries.length);
+  }
+
+  function validateBranch(branch, canonical){
+    if(!branch) return {ok:true};
+    if(branch.baseRevision !== canonical.revision){
+      return {ok:false,reason:'base-revision-mismatch',deviceId:branch.deviceId,expected:canonical.revision,actual:branch.baseRevision};
+    }
+    return {ok:true};
+  }
+
+  function reconcile(canonical, branches){
+    if(!canonical || !canonical.save || canonical.revision == null) throw new Error('Canonical checkpoint is incomplete.');
+    const active=(branches||[]).filter(branchChanged);
+    for(const branch of active){
+      const v=validateBranch(branch,canonical);
+      if(!v.ok) return {ok:false,type:'stale-branch',conflicts:[v],canonical};
+    }
+    if(active.length===0) return {ok:true,type:'no-op',canonical,mergedSave:canonical.save,applied:[]};
+
+    const mergeBranches=active.map(b=>({deviceId:b.deviceId,entries:b.entries}));
+    const result=global.KittensPlanA.merge(canonical.save,mergeBranches);
+    if(!result.ok){
+      return {
+        ok:false,
+        type:'merge-conflict',
+        canonical,
+        conflicts:result.conflicts,
+        applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
+      };
+    }
+    return {
+      ok:true,
+      type:active.length===1?'fast-forward':'merged',
+      canonical,
+      mergedSave:result.merged,
+      applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
+    };
+  }
+
+  function makeRevision(previous, mergedSave, deviceHeads, sha256, now){
+    const time=now||Date.now();
+    const short=(sha256||'pending').slice(0,16);
+    return {
+      schema:1,
+      revision:String(time)+'-'+short,
+      parentRevision:previous&&previous.revision||null,
+      createdAt:time,
+      sha256:sha256||null,
+      save:mergedSave,
+      mergedFrom:(deviceHeads||[]).map(h=>({
+        deviceId:h.deviceId,
+        baseRevision:h.baseRevision,
+        lastSeq:h.lastSeq||0,
+        batchIds:h.batchIds||[]
+      }))
+    };
+  }
+
+  global.KittensPlanAOrchestrator={reconcile,makeRevision,validateBranch};
+})(window);
+
+(function(global){
+  'use strict';
+  function b64Utf8(text){
+    const bytes=new TextEncoder().encode(text);let bin='';
+    for(const b of bytes)bin+=String.fromCharCode(b);
+    return btoa(bin);
+  }
+  function fromB64Utf8(text){
+    const bin=atob(text.replace(/\n/g,'')),bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  function create(opts){
+    const owner=opts.owner,repo=opts.repo,branch=opts.branch||'main',request=opts.request;
+    if(!owner||!repo||!request)throw new Error('GitHub mailbox requires owner, repo, and request().');
+    const repoPath='/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo);
+    const apiPath=p=>repoPath+'/contents/'+p.split('/').map(encodeURIComponent).join('/');
+    async function verifyPrivate(){
+      const r=await request({method:'GET',path:repoPath});
+      if(r.status<200||r.status>=300)throw new Error('GitHub repository check failed ('+r.status+').');
+      const x=typeof r.body==='string'?JSON.parse(r.body):r.body;
+      if(!(x.private===true||x.visibility==='private'))throw new Error('Refusing to upload Kittens saves: '+owner+'/'+repo+' is not private.');
+      return {ok:true,private:true,fullName:x.full_name||owner+'/'+repo};
+    }
+    async function read(path){
+      const r=await request({method:'GET',path:apiPath(path)+'?ref='+encodeURIComponent(branch)});
+      if(r.status===404)return null;
+      if(r.status<200||r.status>=300)throw new Error('GitHub read failed ('+r.status+'): '+String(r.body||''));
+      const x=typeof r.body==='string'?JSON.parse(r.body):r.body;
+      return {sha:x.sha,text:fromB64Utf8(x.content),json:JSON.parse(fromB64Utf8(x.content))};
+    }
+    async function write(path,value,message,sha){
+      const body={message:message||('Update '+path),content:b64Utf8(JSON.stringify(value)),branch};
+      if(sha)body.sha=sha;
+      const r=await request({method:'PUT',path:apiPath(path),json:body});
+      if(r.status===409||r.status===422)return {conflict:true,status:r.status,body:r.body};
+      if(r.status<200||r.status>=300)throw new Error('GitHub write failed ('+r.status+'): '+String(r.body||''));
+      const x=typeof r.body==='string'?JSON.parse(r.body):r.body;
+      return {conflict:false,contentSha:x.content&&x.content.sha,commitSha:x.commit&&x.commit.sha};
+    }
+    async function appendBatch(device,batch){
+      const id=(batch.id||((batch.time||Date.now())+'-'+device+'-'+Math.random().toString(16).slice(2)));
+      const path='devices/'+device+'/events/'+id+'.json';
+      const w=await write(path,batch,'Append '+device+' sync events '+id);
+      if(w.conflict)throw new Error('Unexpected append-only event collision for '+id);
+      return {id,path,...w};
+    }
+    async function readDeviceHead(device){return read('devices/'+device+'/head.json');}
+    async function updateDeviceHead(device,head,expectedSha){
+      const path='devices/'+device+'/head.json';
+      if(expectedSha!==undefined)return write(path,head,'Advance '+device+' sync head',expectedSha||undefined);
+      const current=await read(path);
+      return write(path,head,'Advance '+device+' sync head',current&&current.sha);
+    }
+    async function readBatch(path){return read(path);}
+    async function readCanonical(){return read('canonical/head.json');}
+    async function readRevision(path){return read(path);}
+    async function writeRevision(revision){
+      const path='canonical/revisions/'+revision.revision+'.json';
+      const out=await write(path,revision,'Create canonical Kittens revision '+revision.revision);
+      if(out.conflict)throw new Error('Canonical revision id collision: '+revision.revision);
+      return {path,...out};
+    }
+    async function updateCanonical(head,expectedSha){
+      return write('canonical/head.json',head,'Advance canonical Kittens revision',expectedSha);
+    }
+    return {owner,repo,branch,verifyPrivate,read,write,appendBatch,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical};
+  }
+  global.KittensGitHubMailbox={create};
+})(window);
+
+(function(global){
+  'use strict';
+
+  const DEVICES=['phone','watch'];
+
+  async function sha256(text){
+    const bytes=new TextEncoder().encode(text);
+    const hash=await crypto.subtle.digest('SHA-256',bytes);
+    return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  function create(opts){
+    const deviceId=opts.deviceId;
+    const planA=opts.planA;
+    const mailbox=opts.mailbox;
+    const getSave=opts.getSave;
+    const applySave=opts.applySave;
+    const storage=opts.storage||localStorage;
+    if(!DEVICES.includes(deviceId))throw new Error('Unknown Plan A device: '+deviceId);
+    if(!planA||!mailbox||!getSave)throw new Error('Plan A cloud engine is missing required adapters.');
+
+    const stateKey='kittens.planA.cloud.'+deviceId;
+    function loadState(){
+      try{return JSON.parse(storage.getItem(stateKey)||'{}');}catch(e){return {};}
+    }
+    function saveState(s){storage.setItem(stateKey,JSON.stringify(s));return s;}
+    function maxSeq(entries){return entries.reduce((m,e)=>Math.max(m,Number(e.seq)||0),0);}
+
+    let privacyChecked=false;
+    async function ensurePrivate(){if(!privacyChecked){await mailbox.verifyPrivate();privacyChecked=true;}}
+
+    async function readCanonicalRevision(){
+      const head=await mailbox.readCanonical();
+      if(!head)return null;
+      const path=head.json.revisionPath||('canonical/revisions/'+head.json.revision+'.json');
+      const revision=await mailbox.readRevision(path);
+      if(!revision)throw new Error('Canonical head points to missing revision '+path);
+      return {head,revision:revision.json,path};
+    }
+
+    async function bootstrapFromLocal(){
+      await ensurePrivate();
+      const existing=await readCanonicalRevision();
+      if(existing)return {created:false,...existing};
+
+      const save=JSON.parse(JSON.stringify(getSave()));
+      const hash=await sha256(JSON.stringify(save));
+      const revision=global.KittensPlanAOrchestrator.makeRevision(null,save,[],hash,Date.now());
+      const written=await mailbox.writeRevision(revision);
+      const head={
+        schema:1,
+        revision:revision.revision,
+        revisionPath:written.path,
+        sha256:hash,
+        updatedAt:Date.now()
+      };
+      const advanced=await mailbox.updateCanonical(head,null);
+      if(advanced.conflict){
+        return {created:false,...await readCanonicalRevision()};
+      }
+
+      await mailbox.updateDeviceHead(deviceId,{
+        schema:1,deviceId,baseRevision:revision.revision,lastSeq:0,
+        pendingBatches:[],updatedAt:Date.now()
+      });
+      planA.clearJournal();
+      await planA.checkpoint(save);
+      saveState({baseRevision:revision.revision,lastPublishedSeq:0,lastAppliedRevision:revision.revision});
+      return {created:true,head:{json:head,sha:advanced.contentSha},revision,path:written.path};
+    }
+
+    async function publishLocal(){
+      await ensurePrivate();
+      const state=loadState();
+      if(!state.baseRevision){
+        const canonical=await readCanonicalRevision();
+        if(!canonical)return {ok:false,type:'needs-bootstrap'};
+        state.baseRevision=canonical.revision.revision;
+        saveState(state);
+      }
+
+      const all=planA.journal();
+      const entries=all.filter(e=>(Number(e.seq)||0)>(Number(state.lastPublishedSeq)||0));
+      if(!entries.length)return {ok:true,type:'no-op',published:0};
+
+      const first=entries[0].seq,last=entries.at(-1).seq;
+      const batch={
+        schema:1,
+        id:deviceId+'-'+first+'-'+last+'-'+Date.now(),
+        deviceId,
+        baseRevision:state.baseRevision,
+        createdAt:Date.now(),
+        firstSeq:first,lastSeq:last,
+        entries
+      };
+      const appended=await mailbox.appendBatch(deviceId,batch);
+      const current=await mailbox.readDeviceHead(deviceId);
+      const currentHead=current&&current.json;
+      if(currentHead&&currentHead.baseRevision!==state.baseRevision){
+        return {ok:false,type:'device-head-rebased',current:currentHead,batchPath:appended.path};
+      }
+      const pending=[...new Set([...(currentHead&&currentHead.pendingBatches||[]),appended.path])];
+      const next={
+        schema:1,deviceId,baseRevision:state.baseRevision,
+        lastSeq:last,pendingBatches:pending,updatedAt:Date.now()
+      };
+      const updated=await mailbox.updateDeviceHead(deviceId,next,current&&current.sha);
+      if(updated.conflict)return {ok:false,type:'device-head-race',batchPath:appended.path};
+
+      state.lastPublishedSeq=last;
+      saveState(state);
+      return {ok:true,type:'published',published:entries.length,batchPath:appended.path,lastSeq:last};
+    }
+
+    async function loadBranches(canonicalRevision){
+      const branches=[];
+      const headReads={};
+      for(const id of DEVICES){
+        const h=await mailbox.readDeviceHead(id);
+        headReads[id]=h;
+        if(!h||!h.json||!(h.json.pendingBatches||[]).length)continue;
+        const entries=[];
+        for(const path of h.json.pendingBatches){
+          const b=await mailbox.readBatch(path);
+          if(!b)throw new Error('Missing event batch '+path);
+          entries.push(...(b.json.entries||[]));
+        }
+        branches.push({
+          deviceId:id,
+          baseRevision:h.json.baseRevision,
+          lastSeq:h.json.lastSeq||maxSeq(entries),
+          batchIds:h.json.pendingBatches.slice(),
+          entries
+        });
+      }
+      return {branches,headReads};
+    }
+
+    async function reconcileCloud(){
+      await ensurePrivate();
+      const canonical=await readCanonicalRevision();
+      if(!canonical)return {ok:false,type:'needs-bootstrap'};
+
+      const loaded=await loadBranches(canonical.revision);
+      const result=global.KittensPlanAOrchestrator.reconcile(canonical.revision,loaded.branches);
+      if(!result.ok)return result;
+      if(result.type==='no-op')return {ok:true,type:'no-op',canonical:canonical.revision};
+
+      const mergedSave=result.mergedSave;
+      const hash=await sha256(JSON.stringify(mergedSave));
+      const revision=global.KittensPlanAOrchestrator.makeRevision(
+        canonical.revision,
+        mergedSave,
+        loaded.branches.map(b=>({
+          deviceId:b.deviceId,baseRevision:b.baseRevision,lastSeq:b.lastSeq,batchIds:b.batchIds
+        })),
+        hash,
+        Date.now()
+      );
+      const written=await mailbox.writeRevision(revision);
+      const nextHead={
+        schema:1,revision:revision.revision,revisionPath:written.path,
+        sha256:hash,parentRevision:canonical.revision.revision,updatedAt:Date.now()
+      };
+      const advanced=await mailbox.updateCanonical(nextHead,canonical.head.sha);
+      if(advanced.conflict)return {ok:false,type:'canonical-race',retry:true};
+
+      const ack=[];
+      for(const b of loaded.branches){
+        const read=loaded.headReads[b.deviceId];
+        const next={
+          schema:1,deviceId:b.deviceId,baseRevision:revision.revision,
+          lastSeq:b.lastSeq,acknowledgedSeq:b.lastSeq,pendingBatches:[],updatedAt:Date.now()
+        };
+        const a=await mailbox.updateDeviceHead(b.deviceId,next,read&&read.sha);
+        ack.push({deviceId:b.deviceId,ok:!a.conflict});
+      }
+      return {ok:true,type:result.type,revision,canonicalHead:nextHead,ack};
+    }
+
+    async function pullCanonical(){
+      await ensurePrivate();
+      const canonical=await readCanonicalRevision();
+      if(!canonical)return {ok:false,type:'needs-bootstrap'};
+      const state=loadState();
+      if(state.lastAppliedRevision===canonical.revision.revision)return {ok:true,type:'already-current',revision:canonical.revision};
+
+      const localPending=planA.journal().filter(e=>(Number(e.seq)||0)>(Number(state.lastPublishedSeq)||0));
+      if(localPending.length)return {ok:false,type:'local-unpublished-actions',count:localPending.length};
+
+      if(applySave)await applySave(canonical.revision.save);
+      planA.clearJournal();
+      await planA.checkpoint(canonical.revision.save);
+      saveState({
+        ...state,
+        baseRevision:canonical.revision.revision,
+        lastAppliedRevision:canonical.revision.revision,
+        lastPublishedSeq:0
+      });
+      return {ok:true,type:'applied',revision:canonical.revision};
+    }
+
+    return {bootstrapFromLocal,publishLocal,reconcileCloud,pullCanonical,readCanonicalRevision,loadState};
+  }
+
+  global.KittensPlanACloud={create};
+})(window);
+
 (function(){
  'use strict';
  const KEY='com.nuclearunicorn.kittengame.savedata';
- let ready=false, suspended=false, lastTabList='', page='play', lastComplicationSync=0, transferPoll=0, planASync=null;
+ let ready=false, suspended=false, lastTabList='', page='play', lastComplicationSync=0, transferPoll=0, planASync=null, planAMailbox=null, planACloud=null, planACloudTimer=0, planACloudBusy=false;
  const $id=id=>document.getElementById(id);
  function node(tag,attrs,text){let n=document.createElement(tag);Object.assign(n,attrs||{});if(text!==undefined)n.textContent=text;return n;}
  function button(text,fn,parent){let b=node('button',{type:'button',className:'wear-button'},text);b.onclick=fn;parent.appendChild(b);return b;}
@@ -216,7 +564,7 @@
  button('Export save',async()=>{try{const text=game.compressLZData(JSON.stringify(game.save()));showExportBox(text);const response=await fetch('/export',{method:'POST',body:JSON.stringify({exportText:text})});let x;try{x=await response.json();}catch(e){x={state:'error',operation:'clipboard-copy',type:e.name,message:e.message,detail:'The export string is still visible below for manual copying.'};}const msg=$id('wearExportStatus');if(x.state==='success'){msg.textContent='Copied to Android clipboard · '+x.characters+' characters';status('Save copied to clipboard');}else{msg.textContent='Automatic clipboard copy failed. Long-press the box and copy manually.';msg.dataset.error=JSON.stringify(x);}}catch(e){opError('Export failed',{operation:'export',type:e.name,message:e.message,detail:'The game could not generate an export string.'});}},settings);
  button('Import save',()=>showImportBox(),settings);
  button('Transfer save',()=>showTransferSave(),settings);
- button('Plan A sync status',()=>{const j=planASync?planASync.journal():[],cp=planASync?planASync.getCheckpoint():null;detail('<h2>Plan A sync</h2><p><b>Device:</b> watch</p><p><b>Local journal actions:</b> '+wearEsc(j.length)+'</p><p><b>Common checkpoint:</b> '+wearEsc(cp&&cp.sha256?cp.sha256.slice(0,16)+'…':'not created')+'</p><p>GitHub transport is not enabled yet. Actions are being journaled locally for merge testing.</p>');},settings);
+ button('Plan A cloud sync',()=>showPlanACloud(),settings);
  button('Building filters',()=>{const list=node('div');list.append(node('h2',{},'Building filters'));game.bld.getBuildingGroups(true).forEach(group=>button(group.title,()=>{game.bldTab.activeGroup=group.name;game.render();$id('wearDetail').hidden=true;go('play');},list));$id('wearDetailBody').replaceChildren(list);$id('wearDetail').hidden=false;},settings);
  button('Game options',()=>{$('#optionsDiv').show();game.ui.updateOptions();},settings);
  button('Pause / resume',()=>{game.togglePause();status(game.isPaused?'Game paused':'Game running');syncComplication(true);},settings);
@@ -244,10 +592,91 @@
   }
  }
  async function save(manual){if(!ready || game.currentSaveIsBroken){if(manual)opError('Save failed',{operation:'save',type:'GameStateError',message:'The game is not ready to save or reports the current save as broken.',detail:'No new save file was created.'});return;}try{let data=game.save();const endpoint=manual?'/save-manual':'/backup';const r=await fetch(endpoint,{method:'POST',body:JSON.stringify(data),keepalive:true});let x;try{x=await r.json();}catch(e){throw new Error('Save service returned invalid JSON: '+e.message);}if(!r.ok||x.state==='error'){if(manual)opError('Save failed',x);return;}if(manual){let msg='<h2>Save complete</h2><p><b>'+wearEsc(x.fileName||'KittensGame save')+'</b></p><p>Location: <b>'+wearEsc(x.location||'internal storage')+'</b></p><p>Internal recovery copy: <b>'+(x.internal?'OK':'FAILED')+'</b><br>Visible timestamped copy: <b>'+(x.visible?'OK':'FAILED')+'</b></p>';if(x.detail)msg+='<p><b>Warnings:</b> '+wearEsc(x.detail)+'</p>';detail(msg);}}catch(e){if(manual)opError('Save failed',{operation:'save',type:e.name,message:e.message,detail:'The request to the native save service failed.'});}}
- async function importSave(text){
+ async function importSave(text,quiet){
   text=text.trim();const parsed=JSON.parse(text.startsWith('{')?text:game.decompressLZData(text));text=game.compressLZData(JSON.stringify(parsed));if(!parsed || !Array.isArray(parsed.resources) || !parsed.game)throw Error('Not a Kittens Game save');const previous=LCstorage[KEY];
-  return new Promise((resolve,reject)=>game.saveImportText(text,error=>{if(error){LCstorage[KEY]=previous;game.load();game.render();reject(error);}else{game.opts.enableRedshift=true;game.opts.useWorkers=false;save(true);go('play');resolve();}}));
+  return new Promise((resolve,reject)=>game.saveImportText(text,error=>{if(error){LCstorage[KEY]=previous;game.load();game.render();reject(error);}else{game.opts.enableRedshift=true;game.opts.useWorkers=false;if(quiet)save(false);else save(true);go('play');resolve();}}));
  }
+
+ async function wearGithubRequest(req){
+  const r=await fetch('/github/request',{method:'POST',body:JSON.stringify(req),cache:'no-store'});
+  const x=await r.json();
+  if(x.state==='error')throw new Error(x.message||x.detail||'Native GitHub request failed');
+  return {status:x.status,body:x.body};
+ }
+ async function initPlanACloud(){
+  if(!planASync&&window.KittensPlanA){
+   planASync=KittensPlanA.create({deviceId:'watch',getSave:()=>game.save(),onEntry:()=>schedulePlanACloud()});
+   planASync.attach();
+   if(!planASync.getCheckpoint())await planASync.checkpoint(game.save());
+  }
+  if(planACloud)return true;
+  const r=await fetch('/github/config-status',{cache:'no-store'}),cfg=await r.json();
+  if(cfg.state!=='success'||!cfg.configured)return false;
+  planAMailbox=KittensGitHubMailbox.create({owner:'kd40000-dot',repo:'KittensGame-Sync',branch:'main',request:wearGithubRequest});
+  planACloud=KittensPlanACloud.create({
+   deviceId:'watch',planA:planASync,mailbox:planAMailbox,getSave:()=>game.save(),
+   applySave:saveObj=>importSave(game.compressLZData(JSON.stringify(saveObj)),true)
+  });
+  return true;
+ }
+ function schedulePlanACloud(delay){
+  clearTimeout(planACloudTimer);
+  planACloudTimer=setTimeout(()=>{planACloudSync(false).catch(e=>console.warn('Plan A auto sync failed',e));},delay==null?900:delay);
+ }
+ async function planACloudSync(showUi){
+  if(planACloudBusy)return {ok:true,type:'busy'};
+  planACloudBusy=true;
+  try{
+   if(!await initPlanACloud()){
+    const x={ok:false,type:'not-configured',message:'GitHub sync has not been provisioned from the phone yet.'};
+    if(showUi)opError('Plan A sync unavailable',{operation:'github-sync',type:'NotConfigured',message:x.message,detail:'Open Watch Sync on the phone and provision this watch during an active Transfer save session.'});
+    return x;
+   }
+   if(showUi)status('Plan A: publishing watch actions…');
+   const pub=await planACloud.publishLocal();
+   if(pub.type==='needs-bootstrap'){
+    const x={ok:false,type:'needs-bootstrap',message:'Initialize the canonical Plan A save from the phone first.'};
+    if(showUi)opError('Plan A needs initialization',{operation:'github-sync',type:'NeedsBootstrap',message:x.message,detail:'Use Initialize canonical from this phone in the phone app.'});
+    return x;
+   }
+   const rec=await planACloud.reconcileCloud();
+   if(!rec.ok){
+    if(rec.type==='merge-conflict'){
+     status('Plan A conflict · no save replaced');
+     if(showUi)showPlanAConflict(rec);
+     return rec;
+    }
+    if(rec.retry){schedulePlanACloud(1200);return rec;}
+    throw new Error('Reconciliation failed: '+rec.type);
+   }
+   const pull=await planACloud.pullCanonical();
+   status('Plan A synced · '+(rec.type||pull.type));
+   if(showUi)detail('<h2>Plan A synced</h2><p><b>Result:</b> '+wearEsc(rec.type)+'</p><p><b>Local journal:</b> '+wearEsc(planASync.journal().length)+' pending actions</p>');
+   return {ok:true,type:rec.type,publish:pub,reconcile:rec,pull:pull};
+  }catch(e){
+   status('Plan A sync failed');
+   if(showUi)opError('Plan A sync failed',{operation:'github-sync',type:e.name||'SyncError',message:e.message||String(e),detail:'Your current watch save was retained when sync failed.'});
+   throw e;
+  }finally{planACloudBusy=false;}
+ }
+ function showPlanAConflict(rec){
+  const box=node('div');box.append(node('h2',{},'Plan A merge conflict'));
+  box.append(node('p',{},'Both devices changed from the same common revision, but the changes cannot be combined safely. No save has been replaced.'));
+  (rec.conflicts||[]).slice(0,20).forEach(c=>box.append(node('p',{},((c.entry&&c.entry.deviceId)||'device')+' · '+((c.entry&&c.entry.label)||'action')+' · '+(c.reason||'conflict')+' · '+(c.path||''))));
+  box.append(node('p',{},'Conflict choice controls will be added on the phone, where there is more screen space.'));
+  $id('wearDetailBody').replaceChildren(box);$id('wearDetail').hidden=false;$id('wearDetail').scrollTop=0;
+ }
+ async function showPlanACloud(){
+  const box=node('div');box.append(node('h2',{},'Plan A + GitHub'));
+  const cfgResp=await fetch('/github/config-status',{cache:'no-store'}),cfg=await cfgResp.json();
+  const j=planASync?planASync.journal():[];
+  box.append(node('p',{},cfg.configured?'GitHub: '+cfg.owner+'/'+cfg.repo:'GitHub: not provisioned'));
+  box.append(node('p',{},'Local journal: '+j.length+' actions'));
+  button('Sync now',async()=>{await planACloudSync(true);},box);
+  box.append(node('p',{},'Automatic sync runs shortly after recorded actions once GitHub is configured. LAN Transfer save remains available as the recovery path.'));
+  $id('wearDetailBody').replaceChildren(box);$id('wearDetail').hidden=false;$id('wearDetail').scrollTop=0;
+ }
+
  function installDetails(){
   com.nuclearunicorn.game.ui.ContentRowRenderer.prototype.initRenderer=function(content){this.content=content;this.twoRows=false;};
   const attach=UIUtils.attachTooltip;
@@ -280,7 +709,7 @@
    classes.game.Server.prototype.refresh=function(){};classes.game.Server.prototype.fetchBcoinPrice=function(){return $.Deferred().resolve().promise();};installDetails();originalInit();
    if(!window.game||!game.resPool)throw Error('Game engine did not initialize');
    ready=true;game.opts.disableTelemetry=true;game.opts.enableRedshift=true;game.opts.useWorkers=false;game.autosaveFrequency=50;
-   try{if(window.KittensPlanA){planASync=KittensPlanA.create({deviceId:'watch',getSave:()=>game.save()});planASync.attach();if(!planASync.getCheckpoint())planASync.checkpoint(game.save());}}catch(e){console.warn('Plan A journal initialization failed',e);}
+   try{await initPlanACloud();}catch(e){console.warn('Plan A initialization failed',e);}
    status('Offline · saved on this watch');go('play');
    syncComplication(true);
    setInterval(()=>{if(!document.hidden){update();syncComplication(false);}},1000);
