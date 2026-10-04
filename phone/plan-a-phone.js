@@ -105,6 +105,14 @@
       return r;
     }).catch(function(e){emit('Plan A initialization failed: '+e.message,{busy:false});throw e;});
   }
+  function adoptCanonical(){
+    ensureRuntime();
+    emit('Adopting existing canonical revision on this phone…',{busy:true});
+    return verify().then(function(){return cloud.adoptCanonical();}).then(function(r){
+      emit(r.ok?'Canonical revision adopted on this phone.':'Canonical adoption needs attention: '+r.type,{busy:false,lastResult:r});
+      return r;
+    }).catch(function(e){emit('Canonical adoption failed: '+e.message,{busy:false});throw e;});
+  }
   function syncNow(){
     ensureRuntime();
     if(syncBusy){syncAgain=true;return Promise.resolve({ok:true,type:'queued'});}
@@ -113,6 +121,7 @@
       .then(function(){return cloud.publishLocal();})
       .then(function(pub){
         if(pub&&pub.type==='needs-bootstrap')throw new Error('Canonical sync has not been initialized yet.');
+        if(pub&&pub.type==='needs-adoption')throw new Error('This phone has not adopted the existing canonical baseline yet. Use Adopt existing canonical first.');
         return cloud.reconcileCloud().then(function(rec){return {pub:pub,rec:rec};});
       })
       .then(function(x){
@@ -186,7 +195,7 @@
   }
 
   global.KittensPlanAPhone={
-    init:init,getStatus:getStatus,getToken:getToken,setToken:setToken,verify:verify,bootstrap:bootstrap,
+    init:init,getStatus:getStatus,getToken:getToken,setToken:setToken,verify:verify,bootstrap:bootstrap,adoptCanonical:adoptCanonical,
     syncNow:syncNow,scheduleAutoSync:scheduleAutoSync,provisionWatch:provisionWatch,normalizeWatchUrl:normalizeWatchUrl
   };
   (function autoInit(){try{if(init())return;}catch(e){}setTimeout(autoInit,250);})();
