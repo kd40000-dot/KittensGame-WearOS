@@ -38,8 +38,10 @@
       return {id,path,...w};
     }
     async function readDeviceHead(device){return read('devices/'+device+'/head.json');}
-    async function updateDeviceHead(device,head){
-      const path='devices/'+device+'/head.json',current=await read(path);
+    async function updateDeviceHead(device,head,expectedSha){
+      const path='devices/'+device+'/head.json';
+      if(expectedSha!==undefined)return write(path,head,'Advance '+device+' sync head',expectedSha||undefined);
+      const current=await read(path);
       return write(path,head,'Advance '+device+' sync head',current&&current.sha);
     }
     async function readBatch(path){return read(path);}
