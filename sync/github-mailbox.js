@@ -45,6 +45,14 @@
       if(w.conflict)throw new Error('Unexpected append-only event collision for '+id);
       return {id,path,...w};
     }
+    async function appendSnapshot(device,snapshot){
+      const id=snapshot.id||((snapshot.capturedAt||Date.now())+'-'+device+'-'+Math.random().toString(16).slice(2));
+      const path='devices/'+device+'/snapshots/'+id+'.json';
+      const w=await write(path,snapshot,'Append '+device+' branch snapshot '+id);
+      if(w.conflict)throw new Error('Unexpected append-only snapshot collision for '+id);
+      return {id,path,...w};
+    }
+    async function readSnapshot(path){return read(path);}
     async function readDeviceHead(device){return read('devices/'+device+'/head.json');}
     async function updateDeviceHead(device,head,expectedSha){
       const path='devices/'+device+'/head.json';
@@ -64,7 +72,7 @@
     async function updateCanonical(head,expectedSha){
       return write('canonical/head.json',head,'Advance canonical Kittens revision',expectedSha);
     }
-    return {owner,repo,branch,verifyPrivate,read,write,appendBatch,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical};
+    return {owner,repo,branch,verifyPrivate,read,write,appendBatch,appendSnapshot,readSnapshot,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical};
   }
   global.KittensGitHubMailbox={create};
 })(window);
