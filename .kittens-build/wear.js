@@ -321,8 +321,7 @@
       if(!state.baseRevision){
         const canonical=await readCanonicalRevision();
         if(!canonical)return {ok:false,type:'needs-bootstrap'};
-        state.baseRevision=canonical.revision.revision;
-        saveState(state);
+        return {ok:false,type:'needs-adoption',canonicalRevision:canonical.revision.revision};
       }
 
       const all=planA.journal();
@@ -424,6 +423,25 @@
       return {ok:true,type:result.type,revision,canonicalHead:nextHead,ack};
     }
 
+    async function adoptCanonical(){
+      await ensurePrivate();
+      const canonical=await readCanonicalRevision();
+      if(!canonical)return {ok:false,type:'needs-bootstrap'};
+      if(applySave)await applySave(canonical.revision.save);
+      planA.clearJournal();
+      await planA.checkpoint(canonical.revision.save);
+      const previous=await mailbox.readDeviceHead(deviceId);
+      const lastSeq=previous&&previous.json&&previous.json.lastSeq||0;
+      const next={
+        schema:1,deviceId,baseRevision:canonical.revision.revision,lastSeq,
+        acknowledgedSeq:lastSeq,pendingBatches:[],updatedAt:Date.now()
+      };
+      const updated=await mailbox.updateDeviceHead(deviceId,next,previous&&previous.sha);
+      if(updated.conflict)return {ok:false,type:'device-head-race',retry:true};
+      saveState({baseRevision:canonical.revision.revision,lastPublishedSeq:0,lastAppliedRevision:canonical.revision.revision});
+      return {ok:true,type:'adopted',revision:canonical.revision};
+    }
+
     async function pullCanonical(){
       await ensurePrivate();
       const canonical=await readCanonicalRevision();
@@ -446,11 +464,12 @@
       return {ok:true,type:'applied',revision:canonical.revision};
     }
 
-    return {bootstrapFromLocal,publishLocal,reconcileCloud,pullCanonical,readCanonicalRevision,loadState};
+    return {bootstrapFromLocal,adoptCanonical,publishLocal,reconcileCloud,pullCanonical,readCanonicalRevision,loadState};
   }
 
   global.KittensPlanACloud={create};
 })(window);
+
 
 (function(){
  'use strict';
@@ -642,6 +661,11 @@
     if(showUi)opError('Plan A needs initialization',{operation:'github-sync',type:'NeedsBootstrap',message:x.message,detail:'Use Initialize canonical from this phone in the phone app.'});
     return x;
    }
+   if(pub.type==='needs-adoption'){
+    const x={ok:false,type:'needs-adoption',message:'This watch must adopt the canonical phone baseline before it can publish actions.'};
+    if(showUi)opError('Plan A needs first-time adoption',{operation:'github-sync',type:'NeedsAdoption',message:x.message,detail:'Open Plan A + GitHub on the watch and choose Adopt canonical baseline.'});
+    return x;
+   }
    const rec=await planACloud.reconcileCloud();
    if(!rec.ok){
     if(rec.type==='merge-conflict'){
@@ -662,6 +686,17 @@
    throw e;
   }finally{planACloudBusy=false;}
  }
+ async function adoptPlanACanonical(){
+  if(!await initPlanACloud())throw new Error('GitHub sync has not been provisioned from the phone yet.');
+  if(!confirm('Replace this watch village with the existing canonical Plan A save? The current watch save will be replaced after validation.'))return {ok:false,type:'cancelled'};
+  status('Plan A: adopting canonical baseline…');
+  const r=await planACloud.adoptCanonical();
+  if(!r.ok)throw new Error('Canonical adoption failed: '+r.type);
+  status('Plan A baseline adopted');
+  detail('<h2>Plan A baseline adopted</h2><p>This watch now shares the same common revision as the phone. Automatic action sync is enabled.</p>');
+  return r;
+ }
+
  function showPlanAConflict(rec){
   const box=node('div');box.append(node('h2',{},'Plan A merge conflict'));
   box.append(node('p',{},'Both devices changed from the same common revision, but the changes cannot be combined safely. No save has been replaced.'));
@@ -675,6 +710,9 @@
   const j=planASync?planASync.journal():[];
   box.append(node('p',{},cfg.configured?'GitHub: '+cfg.owner+'/'+cfg.repo:'GitHub: not provisioned'));
   box.append(node('p',{},'Local journal: '+j.length+' actions'));
+  const state=planACloud?planACloud.loadState():{};
+  box.append(node('p',{},state.baseRevision?'Common revision: '+String(state.baseRevision).slice(0,18)+'…':'Common revision: not adopted yet'));
+  if(cfg.configured&&!state.baseRevision)button('Adopt canonical baseline',async()=>{try{await adoptPlanACanonical();}catch(e){opError('Plan A adoption failed',{operation:'github-adopt',type:e.name||'AdoptionError',message:e.message||String(e),detail:'The current watch save was retained if adoption failed.'});}},box);
   button('Sync now',async()=>{await planACloudSync(true);},box);
   box.append(node('p',{},'Automatic sync runs shortly after recorded actions once GitHub is configured. LAN Transfer save remains available as the recovery path.'));
   $id('wearDetailBody').replaceChildren(box);$id('wearDetail').hidden=false;$id('wearDetail').scrollTop=0;
