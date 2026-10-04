@@ -37,15 +37,24 @@
       if(w.conflict)throw new Error('Unexpected append-only event collision for '+id);
       return {id,path,...w};
     }
+    async function readDeviceHead(device){return read('devices/'+device+'/head.json');}
     async function updateDeviceHead(device,head){
       const path='devices/'+device+'/head.json',current=await read(path);
       return write(path,head,'Advance '+device+' sync head',current&&current.sha);
     }
+    async function readBatch(path){return read(path);}
     async function readCanonical(){return read('canonical/head.json');}
+    async function readRevision(path){return read(path);}
+    async function writeRevision(revision){
+      const path='canonical/revisions/'+revision.revision+'.json';
+      const out=await write(path,revision,'Create canonical Kittens revision '+revision.revision);
+      if(out.conflict)throw new Error('Canonical revision id collision: '+revision.revision);
+      return {path,...out};
+    }
     async function updateCanonical(head,expectedSha){
       return write('canonical/head.json',head,'Advance canonical Kittens revision',expectedSha);
     }
-    return {owner,repo,branch,read,write,appendBatch,updateDeviceHead,readCanonical,updateCanonical};
+    return {owner,repo,branch,read,write,appendBatch,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical};
   }
   global.KittensGitHubMailbox={create};
 })(window);
