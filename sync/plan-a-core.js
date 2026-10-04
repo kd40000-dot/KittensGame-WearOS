@@ -71,6 +71,7 @@
   function create(opts){
     const deviceId=opts.deviceId;
     const getSave=opts.getSave;
+    const onEntry=opts.onEntry;
     let seq=Number(read(deviceId,'seq',0))||0,armed=false,before=null;
     async function checkpoint(save){
       const s=clone(save||getSave()),text=JSON.stringify(s);
@@ -83,7 +84,9 @@
       const ops=diff(b,a);if(!ops.length)return null;
       const entry={schema:SCHEMA,deviceId,seq:++seq,time:Date.now(),label:label||'interaction',ops};
       const j=journal();j.push(entry);if(j.length>1000)j.splice(0,j.length-1000);
-      write(deviceId,'seq',seq);write(deviceId,'journal',j);return entry;
+      write(deviceId,'seq',seq);write(deviceId,'journal',j);
+      if(onEntry){try{Promise.resolve(onEntry(entry)).catch(function(e){console.warn('Plan A onEntry failed',e);});}catch(e){console.warn('Plan A onEntry failed',e);}}
+      return entry;
     }
     function arm(label){
       if(armed)return;armed=true;before=clone(getSave());
