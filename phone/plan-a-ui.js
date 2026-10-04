@@ -70,6 +70,17 @@
     }).catch(function(err){self.setState({planABusy:false,planAStatus:'Initialization failed: '+err.message});});
   };
 
+  proto._planAAdopt=function(e){
+    if(e&&e.preventDefault)e.preventDefault();
+    if(this.state.planABusy)return;
+    if(!window.confirm('Replace this phone village with the existing canonical Plan A save? A local backup is created first.'))return;
+    var self=this;
+    this.setState({planABusy:true,planAStatus:'Adopting existing canonical revision…'});
+    KittensPlanAPhone.adoptCanonical().then(function(r){
+      self.setState({planABusy:false,planAStatus:r.ok?'Canonical revision adopted on this phone.':'Adoption needs attention: '+r.type});
+    }).catch(function(err){self.setState({planABusy:false,planAStatus:'Adoption failed: '+err.message});});
+  };
+
   proto._planAProvisionWatch=function(e){
     if(e&&e.preventDefault)e.preventDefault();
     if(this.state.planABusy)return;
@@ -115,6 +126,7 @@
         }),
         $r('p',{key:'pa-verify'},[$r('a',{href:'#',className:'button',onClick:this._planASaveToken.bind(this)},configured?'Verify GitHub access':'Save token & verify')]),
         $r('p',{key:'pa-init'},[$r('a',{href:'#',className:'button',onClick:this._planAInitialize.bind(this)},'Initialize canonical from this phone')]),
+        $r('p',{key:'pa-adopt'},[$r('a',{href:'#',className:'button',onClick:this._planAAdopt.bind(this)},'Adopt existing canonical on phone')]),
         $r('p',{key:'pa-provision'},[$r('a',{href:'#',className:'button',onClick:this._planAProvisionWatch.bind(this)},'Provision current watch securely')]),
         $r('p',{key:'pa-sync'},[$r('a',{href:'#',className:'button',onClick:this._planASyncNow.bind(this)},'Sync GitHub now')]),
         $r('p',{key:'pa-state',style:{whiteSpace:'pre-wrap'}},this.state.planAStatus||cloudState.message||'Plan A not configured.')
