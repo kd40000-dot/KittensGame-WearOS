@@ -75,8 +75,7 @@
       if(!state.baseRevision){
         const canonical=await readCanonicalRevision();
         if(!canonical)return {ok:false,type:'needs-bootstrap'};
-        state.baseRevision=canonical.revision.revision;
-        saveState(state);
+        return {ok:false,type:'needs-adoption',canonicalRevision:canonical.revision.revision};
       }
 
       const all=planA.journal();
@@ -178,6 +177,25 @@
       return {ok:true,type:result.type,revision,canonicalHead:nextHead,ack};
     }
 
+    async function adoptCanonical(){
+      await ensurePrivate();
+      const canonical=await readCanonicalRevision();
+      if(!canonical)return {ok:false,type:'needs-bootstrap'};
+      if(applySave)await applySave(canonical.revision.save);
+      planA.clearJournal();
+      await planA.checkpoint(canonical.revision.save);
+      const previous=await mailbox.readDeviceHead(deviceId);
+      const lastSeq=previous&&previous.json&&previous.json.lastSeq||0;
+      const next={
+        schema:1,deviceId,baseRevision:canonical.revision.revision,lastSeq,
+        acknowledgedSeq:lastSeq,pendingBatches:[],updatedAt:Date.now()
+      };
+      const updated=await mailbox.updateDeviceHead(deviceId,next,previous&&previous.sha);
+      if(updated.conflict)return {ok:false,type:'device-head-race',retry:true};
+      saveState({baseRevision:canonical.revision.revision,lastPublishedSeq:0,lastAppliedRevision:canonical.revision.revision});
+      return {ok:true,type:'adopted',revision:canonical.revision};
+    }
+
     async function pullCanonical(){
       await ensurePrivate();
       const canonical=await readCanonicalRevision();
@@ -200,7 +218,7 @@
       return {ok:true,type:'applied',revision:canonical.revision};
     }
 
-    return {bootstrapFromLocal,publishLocal,reconcileCloud,pullCanonical,readCanonicalRevision,loadState};
+    return {bootstrapFromLocal,adoptCanonical,publishLocal,reconcileCloud,pullCanonical,readCanonicalRevision,loadState};
   }
 
   global.KittensPlanACloud={create};
