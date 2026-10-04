@@ -83,32 +83,49 @@
       if(!entries.length)return {ok:true,type:'no-op',published:0};
 
       const first=entries[0].seq,last=entries.at(-1).seq;
+      const capturedAt=Date.now();
+      const publicationId=deviceId+'-'+first+'-'+last+'-'+capturedAt;
+      const snapshotSave=JSON.parse(JSON.stringify(getSave()));
+      const snapshotHash=await sha256(JSON.stringify(snapshotSave));
       const batch={
         schema:1,
-        id:deviceId+'-'+first+'-'+last+'-'+Date.now(),
+        id:publicationId,
         deviceId,
         baseRevision:state.baseRevision,
-        createdAt:Date.now(),
+        createdAt:capturedAt,
         firstSeq:first,lastSeq:last,
         entries
       };
+      const snapshot={
+        schema:1,
+        id:publicationId,
+        deviceId,
+        baseRevision:state.baseRevision,
+        capturedAt,
+        lastSeq:last,
+        sha256:snapshotHash,
+        save:snapshotSave
+      };
       const appended=await mailbox.appendBatch(deviceId,batch);
+      const snapped=await mailbox.appendSnapshot(deviceId,snapshot);
       const current=await mailbox.readDeviceHead(deviceId);
       const currentHead=current&&current.json;
       if(currentHead&&currentHead.baseRevision!==state.baseRevision){
-        return {ok:false,type:'device-head-rebased',current:currentHead,batchPath:appended.path};
+        return {ok:false,type:'device-head-rebased',current:currentHead,batchPath:appended.path,snapshotPath:snapped.path};
       }
       const pending=[...new Set([...(currentHead&&currentHead.pendingBatches||[]),appended.path])];
       const next={
         schema:1,deviceId,baseRevision:state.baseRevision,
-        lastSeq:last,pendingBatches:pending,updatedAt:Date.now()
+        lastSeq:last,pendingBatches:pending,
+        snapshotPath:snapped.path,snapshotCapturedAt:capturedAt,snapshotSha256:snapshotHash,
+        updatedAt:Date.now()
       };
       const updated=await mailbox.updateDeviceHead(deviceId,next,current&&current.sha);
-      if(updated.conflict)return {ok:false,type:'device-head-race',batchPath:appended.path};
+      if(updated.conflict)return {ok:false,type:'device-head-race',batchPath:appended.path,snapshotPath:snapped.path};
 
       state.lastPublishedSeq=last;
       saveState(state);
-      return {ok:true,type:'published',published:entries.length,batchPath:appended.path,lastSeq:last};
+      return {ok:true,type:'published',published:entries.length,batchPath:appended.path,snapshotPath:snapped.path,lastSeq:last};
     }
 
     async function loadBranches(canonicalRevision){
@@ -124,11 +141,21 @@
           if(!b)throw new Error('Missing event batch '+path);
           entries.push(...(b.json.entries||[]));
         }
+        let snapshot=null;
+        if(h.json.snapshotPath){
+          const s=await mailbox.readSnapshot(h.json.snapshotPath);
+          if(!s)throw new Error('Missing device snapshot '+h.json.snapshotPath);
+          if(s.json.baseRevision!==h.json.baseRevision)throw new Error('Snapshot base revision does not match device head.');
+          snapshot=s.json;
+        }
         branches.push({
           deviceId:id,
           baseRevision:h.json.baseRevision,
           lastSeq:h.json.lastSeq||maxSeq(entries),
           batchIds:h.json.pendingBatches.slice(),
+          snapshotPath:h.json.snapshotPath||null,
+          snapshotCapturedAt:h.json.snapshotCapturedAt||snapshot&&snapshot.capturedAt||0,
+          snapshot,
           entries
         });
       }
@@ -151,7 +178,8 @@
         canonical.revision,
         mergedSave,
         loaded.branches.map(b=>({
-          deviceId:b.deviceId,baseRevision:b.baseRevision,lastSeq:b.lastSeq,batchIds:b.batchIds
+          deviceId:b.deviceId,baseRevision:b.baseRevision,lastSeq:b.lastSeq,batchIds:b.batchIds,
+          snapshotPath:b.snapshotPath,snapshotCapturedAt:b.snapshotCapturedAt
         })),
         hash,
         Date.now()
@@ -169,7 +197,8 @@
         const read=loaded.headReads[b.deviceId];
         const next={
           schema:1,deviceId:b.deviceId,baseRevision:revision.revision,
-          lastSeq:b.lastSeq,acknowledgedSeq:b.lastSeq,pendingBatches:[],updatedAt:Date.now()
+          lastSeq:b.lastSeq,acknowledgedSeq:b.lastSeq,pendingBatches:[],
+          snapshotPath:null,snapshotCapturedAt:null,snapshotSha256:null,updatedAt:Date.now()
         };
         const a=await mailbox.updateDeviceHead(b.deviceId,next,read&&read.sha);
         ack.push({deviceId:b.deviceId,ok:!a.conflict});
