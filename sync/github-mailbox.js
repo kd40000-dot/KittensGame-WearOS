@@ -13,7 +13,15 @@
   function create(opts){
     const owner=opts.owner,repo=opts.repo,branch=opts.branch||'main',request=opts.request;
     if(!owner||!repo||!request)throw new Error('GitHub mailbox requires owner, repo, and request().');
-    const apiPath=p=>'/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo)+'/contents/'+p.split('/').map(encodeURIComponent).join('/');
+    const repoPath='/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo);
+    const apiPath=p=>repoPath+'/contents/'+p.split('/').map(encodeURIComponent).join('/');
+    async function verifyPrivate(){
+      const r=await request({method:'GET',path:repoPath});
+      if(r.status<200||r.status>=300)throw new Error('GitHub repository check failed ('+r.status+').');
+      const x=typeof r.body==='string'?JSON.parse(r.body):r.body;
+      if(!(x.private===true||x.visibility==='private'))throw new Error('Refusing to upload Kittens saves: '+owner+'/'+repo+' is not private.');
+      return {ok:true,private:true,fullName:x.full_name||owner+'/'+repo};
+    }
     async function read(path){
       const r=await request({method:'GET',path:apiPath(path)+'?ref='+encodeURIComponent(branch)});
       if(r.status===404)return null;
@@ -56,7 +64,7 @@
     async function updateCanonical(head,expectedSha){
       return write('canonical/head.json',head,'Advance canonical Kittens revision',expectedSha);
     }
-    return {owner,repo,branch,read,write,appendBatch,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical};
+    return {owner,repo,branch,verifyPrivate,read,write,appendBatch,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical};
   }
   global.KittensGitHubMailbox={create};
 })(window);
