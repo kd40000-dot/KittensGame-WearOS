@@ -10,6 +10,8 @@ import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.AtomicFile;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
@@ -19,6 +21,16 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.security.KeyStore;
+import java.security.KeyPairGenerator;
+import java.security.spec.MGF1ParameterSpec;
+import java.security.interfaces.RSAPublicKey;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.OAEPParameterSpec;
+import javax.crypto.spec.PSource;
 import java.util.*;
 import java.util.concurrent.Executors;
 
@@ -73,6 +85,16 @@ final class LocalGameServer {
    }else if(request[0].equals("POST")&&(path.equals("/backup")||path.equals("/save-manual"))){
     byte[] body=in.readNBytes(length);if(body.length!=length)throw new IOException("Incomplete save body");
     data=(path.equals("/save-manual")?manualSave(body):internalSave(body)).getBytes(StandardCharsets.UTF_8);
+   }else if(path.equals("/github/config-status")){
+    data=githubConfigStatus().getBytes(StandardCharsets.UTF_8);
+   }else if(path.equals("/github/pairing-key")){
+    data=githubPairingKey().getBytes(StandardCharsets.UTF_8);
+   }else if(request[0].equals("POST")&&path.equals("/github/config-encrypted")){
+    byte[] body=in.readNBytes(length);if(body.length!=length)throw new IOException("Incomplete GitHub config body");
+    data=storeGithubConfigEncrypted(new String(body,StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8);
+   }else if(request[0].equals("POST")&&path.equals("/github/request")){
+    byte[] body=in.readNBytes(length);if(body.length!=length)throw new IOException("Incomplete GitHub proxy body");
+    data=githubRequest(new String(body,StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8);
    }else if(request[0].equals("POST")&&path.equals("/transfer/start")){
     byte[] body=in.readNBytes(length);if(body.length!=length)throw new IOException("Incomplete transfer body");
     org.json.JSONObject parsed=new org.json.JSONObject(new String(body,StandardCharsets.UTF_8));
@@ -106,6 +128,69 @@ final class LocalGameServer {
    }
    reply(s,200,type,data);
   }catch(Exception e){try{reply(socket,500,"application/json",errorJson("server",e,"Request processing failed").getBytes(StandardCharsets.UTF_8));}catch(Exception ignored){}}
+ }
+
+
+ private String githubConfigStatus(){
+  try{
+   org.json.JSONObject cfg=SecureGithubConfig.load(context);
+   if(cfg==null)return "{\"state\":\"success\",\"configured\":false}";
+   return "{\"state\":\"success\",\"configured\":true,\"owner\":\""+esc(cfg.optString("owner"))+"\",\"repo\":\""+esc(cfg.optString("repo"))+"\",\"branch\":\""+esc(cfg.optString("branch","main"))+"\"}";
+  }catch(Throwable e){return errorJson("github-config-status",e,"Could not read encrypted GitHub configuration.");}
+ }
+ private String githubPairingKey(){
+  try{
+   String key=SecureGithubConfig.publicKeyBase64();
+   return "{\"state\":\"success\",\"algorithm\":\"RSA-OAEP-256\",\"publicKeySpkiBase64\":\""+esc(key)+"\"}";
+  }catch(Throwable e){return errorJson("github-pairing-key",e,"Could not create the watch pairing key.");}
+ }
+ private String storeGithubConfigEncrypted(String json){
+  try{
+   org.json.JSONObject body=new org.json.JSONObject(json);
+   String ciphertext=body.getString("ciphertext");
+   String plain=SecureGithubConfig.decryptPairingPayload(ciphertext);
+   org.json.JSONObject cfg=new org.json.JSONObject(plain);
+   String owner=cfg.getString("owner").trim(),repo=cfg.getString("repo").trim(),token=cfg.getString("token").trim();
+   String branch=cfg.optString("branch","main").trim();
+   if(owner.isEmpty()||repo.isEmpty()||token.length()<20)throw new IllegalArgumentException("GitHub configuration is incomplete.");
+   if(!owner.equals("kd40000-dot")||!repo.equals("KittensGame-Sync"))throw new SecurityException("This build only accepts kd40000-dot/KittensGame-Sync.");
+   org.json.JSONObject safe=new org.json.JSONObject();
+   safe.put("owner",owner);safe.put("repo",repo);safe.put("branch",branch.isEmpty()?"main":branch);safe.put("token",token);
+   SecureGithubConfig.save(context,safe);
+   return "{\"state\":\"success\",\"configured\":true,\"owner\":\""+esc(owner)+"\",\"repo\":\""+esc(repo)+"\"}";
+  }catch(Throwable e){return errorJson("github-config",e,"Encrypted GitHub configuration was not accepted.");}
+ }
+ private String githubRequest(String json){
+  HttpURLConnection conn=null;
+  try{
+   org.json.JSONObject cfg=SecureGithubConfig.load(context);
+   if(cfg==null)throw new SecurityException("GitHub sync is not configured on this watch.");
+   org.json.JSONObject req=new org.json.JSONObject(json);
+   String method=req.optString("method","GET").toUpperCase(Locale.ROOT);
+   String path=req.getString("path");
+   String allowed="/repos/"+cfg.getString("owner")+"/"+cfg.getString("repo");
+   if(!(path.equals(allowed)||path.startsWith(allowed+"/")))throw new SecurityException("GitHub request is outside the configured sync repository.");
+   if(!(method.equals("GET")||method.equals("PUT")))throw new SecurityException("GitHub method is not allowed: "+method);
+   URL url=new URL("https://api.github.com"+path);
+   conn=(HttpURLConnection)url.openConnection();
+   conn.setConnectTimeout(12000);conn.setReadTimeout(20000);conn.setRequestMethod(method);
+   conn.setRequestProperty("Accept","application/vnd.github+json");
+   conn.setRequestProperty("Authorization","Bearer "+cfg.getString("token"));
+   conn.setRequestProperty("X-GitHub-Api-Version","2022-11-28");
+   conn.setRequestProperty("User-Agent","Kittens-Wear-PlanA");
+   if(method.equals("PUT")){
+    byte[] body=req.getJSONObject("json").toString().getBytes(StandardCharsets.UTF_8);
+    conn.setDoOutput(true);conn.setRequestProperty("Content-Type","application/json");conn.setFixedLengthStreamingMode(body.length);
+    try(OutputStream out=conn.getOutputStream()){out.write(body);}
+   }
+   int status=conn.getResponseCode();
+   InputStream response=status>=400?conn.getErrorStream():conn.getInputStream();
+   String body=response==null?"":new String(response.readAllBytes(),StandardCharsets.UTF_8);
+   org.json.JSONObject out=new org.json.JSONObject();
+   out.put("status",status);out.put("body",body);
+   return out.toString();
+  }catch(Throwable e){return errorJson("github-request",e,"Native GitHub request failed.");}
+  finally{if(conn!=null)conn.disconnect();}
  }
 
  private synchronized String startTransfer(String exportText){
@@ -196,6 +281,12 @@ final class LocalGameServer {
    String action=rawPath.substring(prefix.length());
    if(request[0].equals("OPTIONS")){
     transferReply(s,200,"text/plain",new byte[0]);
+   }else if(request[0].equals("GET")&&action.equals("github-key")){
+    transferReply(s,200,"application/json",githubPairingKey().getBytes(StandardCharsets.UTF_8));
+   }else if(request[0].equals("POST")&&action.equals("github-config")){
+    byte[] body=in.readNBytes(length);
+    if(body.length!=length)throw new IOException("GitHub config upload was incomplete.");
+    transferReply(s,200,"application/json",storeGithubConfigEncrypted(new String(body,StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
    }else if(request[0].equals("GET")&&action.equals("download")){
     String save=transferExport;
     if(save==null)throw new IllegalStateException("No watch export is available.");
@@ -329,5 +420,64 @@ final class LocalGameServer {
   for(Map.Entry<String,String> e:extra.entrySet())h.append("\r\n").append(e.getKey()).append(": ").append(e.getValue());
   h.append("\r\n\r\n");
   o.write(h.toString().getBytes(StandardCharsets.UTF_8));o.write(data);o.flush();
+ }
+}
+
+
+final class SecureGithubConfig {
+ private static final String PREFS="kittens_plan_a_secure";
+ private static final String AES_ALIAS="kittens_plan_a_github_aes_v1";
+ private static final String RSA_ALIAS="kittens_plan_a_pair_rsa_v1";
+ private static final String PREF_IV="github_iv",PREF_DATA="github_data";
+
+ private static KeyStore ks()throws Exception{
+  KeyStore ks=KeyStore.getInstance("AndroidKeyStore");ks.load(null);return ks;
+ }
+ private static SecretKey aesKey()throws Exception{
+  KeyStore store=ks();
+  if(store.containsAlias(AES_ALIAS))return (SecretKey)store.getKey(AES_ALIAS,null);
+  KeyGenerator kg=KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore");
+  kg.init(new KeyGenParameterSpec.Builder(AES_ALIAS,KeyProperties.PURPOSE_ENCRYPT|KeyProperties.PURPOSE_DECRYPT)
+   .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setKeySize(256).build());
+  return kg.generateKey();
+ }
+ private static java.security.KeyPair rsaPair()throws Exception{
+  KeyStore store=ks();
+  if(store.containsAlias(RSA_ALIAS)){
+   java.security.PrivateKey priv=(java.security.PrivateKey)store.getKey(RSA_ALIAS,null);
+   java.security.PublicKey pub=store.getCertificate(RSA_ALIAS).getPublicKey();
+   return new java.security.KeyPair(pub,priv);
+  }
+  KeyPairGenerator kpg=KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA,"AndroidKeyStore");
+  kpg.initialize(new KeyGenParameterSpec.Builder(RSA_ALIAS,KeyProperties.PURPOSE_DECRYPT)
+   .setDigests(KeyProperties.DIGEST_SHA256,KeyProperties.DIGEST_SHA1)
+   .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP).setKeySize(3072).build());
+  return kpg.generateKeyPair();
+ }
+ static String publicKeyBase64()throws Exception{
+  return android.util.Base64.encodeToString(rsaPair().getPublic().getEncoded(),android.util.Base64.NO_WRAP);
+ }
+ static String decryptPairingPayload(String ciphertextB64)throws Exception{
+  byte[] cipherBytes=android.util.Base64.decode(ciphertextB64,android.util.Base64.DEFAULT);
+  Cipher cipher=Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+  OAEPParameterSpec spec=new OAEPParameterSpec("SHA-256","MGF1",MGF1ParameterSpec.SHA256,PSource.PSpecified.DEFAULT);
+  cipher.init(Cipher.DECRYPT_MODE,rsaPair().getPrivate(),spec);
+  return new String(cipher.doFinal(cipherBytes),StandardCharsets.UTF_8);
+ }
+ static void save(Context context,org.json.JSONObject config)throws Exception{
+  Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,aesKey());
+  byte[] encrypted=cipher.doFinal(config.toString().getBytes(StandardCharsets.UTF_8));
+  context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit()
+   .putString(PREF_IV,android.util.Base64.encodeToString(cipher.getIV(),android.util.Base64.NO_WRAP))
+   .putString(PREF_DATA,android.util.Base64.encodeToString(encrypted,android.util.Base64.NO_WRAP)).apply();
+ }
+ static org.json.JSONObject load(Context context)throws Exception{
+  android.content.SharedPreferences p=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);
+  String iv=p.getString(PREF_IV,null),data=p.getString(PREF_DATA,null);
+  if(iv==null||data==null)return null;
+  Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");
+  cipher.init(Cipher.DECRYPT_MODE,aesKey(),new GCMParameterSpec(128,android.util.Base64.decode(iv,android.util.Base64.DEFAULT)));
+  byte[] plain=cipher.doFinal(android.util.Base64.decode(data,android.util.Base64.DEFAULT));
+  return new org.json.JSONObject(new String(plain,StandardCharsets.UTF_8));
  }
 }
