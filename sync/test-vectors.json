@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "cases": [
+    {
+      "name": "non-conflicting divergent purchases compose",
+      "common": {
+        "resources": [{"name":"wood","value":1000}],
+        "buildings": {"barn":0,"library":0}
+      },
+      "branches": [
+        {
+          "deviceId":"watch",
+          "entries":[
+            {
+              "deviceId":"watch","seq":1,"time":1000,"label":"Buy Barn",
+              "ops":[
+                {"op":"delta","path":"/resources/0/value","from":1000,"delta":-200,"to":800},
+                {"op":"delta","path":"/buildings/barn","from":0,"delta":1,"to":1}
+              ]
+            }
+          ]
+        },
+        {
+          "deviceId":"phone",
+          "entries":[
+            {
+              "deviceId":"phone","seq":1,"time":1100,"label":"Buy Library",
+              "ops":[
+                {"op":"delta","path":"/resources/0/value","from":1000,"delta":-300,"to":700},
+                {"op":"delta","path":"/buildings/library","from":0,"delta":1,"to":1}
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "ok": true,
+        "resources": [{"name":"wood","value":500}],
+        "buildings": {"barn":1,"library":1}
+      }
+    },
+    {
+      "name": "overspending divergent purchases requires conflict resolution",
+      "common": {
+        "resources": [{"name":"wood","value":300}],
+        "buildings": {"barn":0,"library":0}
+      },
+      "branches": [
+        {
+          "deviceId":"watch",
+          "entries":[
+            {
+              "deviceId":"watch","seq":1,"time":1000,"label":"Buy Barn",
+              "ops":[
+                {"op":"delta","path":"/resources/0/value","from":300,"delta":-250,"to":50},
+                {"op":"delta","path":"/buildings/barn","from":0,"delta":1,"to":1}
+              ]
+            }
+          ]
+        },
+        {
+          "deviceId":"phone",
+          "entries":[
+            {
+              "deviceId":"phone","seq":1,"time":1100,"label":"Buy Library",
+              "ops":[
+                {"op":"delta","path":"/resources/0/value","from":300,"delta":-250,"to":50},
+                {"op":"delta","path":"/buildings/library","from":0,"delta":1,"to":1}
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": {
+        "ok": false,
+        "conflictReason": "resource-would-go-negative"
+      }
+    }
+  ]
+}
