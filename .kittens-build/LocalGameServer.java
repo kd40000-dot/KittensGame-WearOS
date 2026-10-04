@@ -281,6 +281,12 @@ final class LocalGameServer {
    String action=rawPath.substring(prefix.length());
    if(request[0].equals("OPTIONS")){
     transferReply(s,200,"text/plain",new byte[0]);
+   }else if(request[0].equals("GET")&&action.equals("github-key")){
+    transferReply(s,200,"application/json",githubPairingKey().getBytes(StandardCharsets.UTF_8));
+   }else if(request[0].equals("POST")&&action.equals("github-config")){
+    byte[] body=in.readNBytes(length);
+    if(body.length!=length)throw new IOException("GitHub config upload was incomplete.");
+    transferReply(s,200,"application/json",storeGithubConfigEncrypted(new String(body,StandardCharsets.UTF_8)).getBytes(StandardCharsets.UTF_8));
    }else if(request[0].equals("GET")&&action.equals("download")){
     String save=transferExport;
     if(save==null)throw new IllegalStateException("No watch export is available.");
