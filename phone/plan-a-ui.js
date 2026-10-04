@@ -1,6 +1,9 @@
 (function(global){
   'use strict';
-  if(!global.WExportPopup||!global.React)return;
+  function install(){
+   if(!global.WExportPopup||!global.React){setTimeout(install,50);return;}
+   if(global.WExportPopup.__planAInstalled)return;
+   global.WExportPopup.__planAInstalled=true;
 
   var proto=WExportPopup.prototype;
   var originalInitial=proto.getInitialState;
@@ -125,4 +128,6 @@
       return root;
     }
   };
+  }
+  install();
 })(window);
