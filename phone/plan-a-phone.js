@@ -189,4 +189,5 @@
     init:init,getStatus:getStatus,getToken:getToken,setToken:setToken,verify:verify,bootstrap:bootstrap,
     syncNow:syncNow,scheduleAutoSync:scheduleAutoSync,provisionWatch:provisionWatch,normalizeWatchUrl:normalizeWatchUrl
   };
+  (function autoInit(){try{if(init())return;}catch(e){}setTimeout(autoInit,250);})();
 })(window);
