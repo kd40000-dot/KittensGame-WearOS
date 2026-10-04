@@ -92,7 +92,8 @@
     }
     function arm(label){
       if(armed)return;armed=true;before=clone(getSave());
-      setTimeout(async()=>{try{const after=clone(getSave());await record(label,before,after);}finally{armed=false;before=null;}},0);
+      const finish=async()=>{try{const after=clone(getSave());await record(label,before,after);}finally{armed=false;before=null;}};
+      if(typeof queueMicrotask==='function')queueMicrotask(finish);else Promise.resolve().then(finish);
     }
     function attach(){
       document.addEventListener('click',e=>{
