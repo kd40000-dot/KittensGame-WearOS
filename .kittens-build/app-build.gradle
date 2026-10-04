@@ -1,0 +1,10 @@
+plugins { id 'com.android.application' }
+android { namespace 'com.balthazar.kittenswear'; compileSdk 36
+ defaultConfig { applicationId 'com.balthazar.kittenswear'; minSdk 33; targetSdk 34; versionCode 7; versionName '1.1.5'; ndk { abiFilters.addAll(project.hasProperty('emulatorBuild') ? ['x86_64'] : ['arm64-v8a','armeabi-v7a']) } }
+ signingConfigs { personal { storeFile file('../personal.jks'); storePassword System.getenv('KITTENS_KEYSTORE_PASSWORD'); keyAlias 'kittens'; keyPassword System.getenv('KITTENS_KEYSTORE_PASSWORD') } }
+ buildTypes { release { minifyEnabled false; signingConfig signingConfigs.personal } }
+ compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+ lint { disable 'NotificationPermission' }
+ packaging { jniLibs { useLegacyPackaging true } }
+}
+dependencies { implementation 'org.mozilla.geckoview:geckoview:140.0.20250707120347'; implementation 'androidx.wear.watchface:watchface-complications-data-source:1.2.1' }
