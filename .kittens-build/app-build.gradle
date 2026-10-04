@@ -7,4 +7,4 @@ android { namespace 'com.balthazar.kittenswear'; compileSdk 36
  lint { disable 'NotificationPermission' }
  packaging { jniLibs { useLegacyPackaging true } }
 }
-dependencies { implementation 'org.mozilla.geckoview:geckoview:140.0.20250707120347'; implementation 'androidx.wear.watchface:watchface-complications-data-source:1.2.1' }
+dependencies { implementation 'org.mozilla.geckoview:geckoview:140.0.20250707120347'; implementation 'androidx.wear.watchface:watchface-complications-data-source:1.2.1'; implementation 'com.google.zxing:core:3.5.3' }
