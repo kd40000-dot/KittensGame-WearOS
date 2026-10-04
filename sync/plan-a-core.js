@@ -16,7 +16,9 @@
     for(let i=0;i<parts.length-1;i++){const k=Array.isArray(cur)?Number(parts[i]):parts[i];cur=cur[k];}
     const last=Array.isArray(cur)?Number(parts.at(-1)):parts.at(-1);cur[last]=value;return root;
   }
+  function isVolatilePath(path){return path==='/time/timestamp';}
   function diff(before,after,path='',ops=[]){
+    if(isVolatilePath(path))return ops;
     if(same(before,after))return ops;
     if(typeof before==='number'&&typeof after==='number'&&Number.isFinite(before)&&Number.isFinite(after)){
       ops.push({op:'delta',path,from:before,delta:after-before,to:after});return ops;
