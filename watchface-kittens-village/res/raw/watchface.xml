@@ -651,12 +651,17 @@
           <Font family="SYNC_TO_DEVICE" size="18" weight="BOLD" color="#50FA7B"/>
         </TimeText>
       </DigitalClock>
-      <DigitalClock x="8" y="84" width="144" height="28">
-        <Localization locales="en-US" timeZone="SYNC_TO_DEVICE" calendar="GREGORIAN"/>
-        <TimeText x="0" y="0" width="144" height="28" format="EEE MMM dd" align="CENTER">
-          <Font family="SYNC_TO_DEVICE" size="18" weight="BOLD" color="#8BE9FD"/>
-        </TimeText>
-      </DigitalClock>
+      <PartText x="8" y="84" width="144" height="28">
+        <Text align="CENTER">
+          <Font family="SYNC_TO_DEVICE" size="18" weight="BOLD" color="#8BE9FD">
+            <Template><![CDATA[%s %s %d]]>
+              <Parameter expression="[DAY_OF_WEEK_S]"/>
+              <Parameter expression="[MONTH_S]"/>
+              <Parameter expression="[DAY]"/>
+            </Template>
+          </Font>
+        </Text>
+      </PartText>
     </Group>
 
 
