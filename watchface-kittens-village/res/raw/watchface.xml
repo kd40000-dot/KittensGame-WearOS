@@ -37,7 +37,7 @@
     </Group>
 
     <ComplicationSlot x="145" y="15" width="160" height="105" slotId="0" name="metals" displayName="slot_metals" supportedTypes="SMALL_IMAGE EMPTY">
-      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudMetalsPanelService" primaryProviderType="SMALL_IMAGE"/>
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudMetalsPanelService" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="APP_SHORTCUT" defaultSystemProviderType="SMALL_IMAGE"/>
       <BoundingBox x="0" y="0" width="160" height="105" outlinePadding="2"/>
       <Complication type="SMALL_IMAGE">
         <PartImage x="0" y="0" width="160" height="105">
@@ -248,7 +248,7 @@
     </ComplicationSlot>
 
     <ComplicationSlot x="340" y="170" width="100" height="110" slotId="2" name="industry" displayName="slot_industry" supportedTypes="SMALL_IMAGE EMPTY">
-      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudIndustryPanelService" primaryProviderType="SMALL_IMAGE"/>
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudIndustryPanelService" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="APP_SHORTCUT" defaultSystemProviderType="SMALL_IMAGE"/>
       <BoundingBox x="0" y="0" width="100" height="110" outlinePadding="2"/>
       <Complication type="SMALL_IMAGE">
         <PartImage x="0" y="0" width="100" height="110">
@@ -459,7 +459,7 @@
     </ComplicationSlot>
 
     <ComplicationSlot x="145" y="340" width="160" height="95" slotId="4" name="village" displayName="slot_village" supportedTypes="SMALL_IMAGE EMPTY">
-      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudVillagePanelService" primaryProviderType="SMALL_IMAGE"/>
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudVillagePanelService" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="APP_SHORTCUT" defaultSystemProviderType="SMALL_IMAGE"/>
       <BoundingBox x="0" y="0" width="160" height="95" outlinePadding="2"/>
       <Complication type="SMALL_IMAGE">
         <PartImage x="0" y="0" width="160" height="95">
@@ -670,7 +670,7 @@
     </ComplicationSlot>
 
     <ComplicationSlot x="10" y="170" width="100" height="110" slotId="6" name="mythic" displayName="slot_mythic" supportedTypes="SMALL_IMAGE EMPTY">
-      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudMythicPanelService" primaryProviderType="SMALL_IMAGE"/>
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudMythicPanelService" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="APP_SHORTCUT" defaultSystemProviderType="SMALL_IMAGE"/>
       <BoundingBox x="0" y="0" width="100" height="110" outlinePadding="2"/>
       <Complication type="SMALL_IMAGE">
         <PartImage x="0" y="0" width="100" height="110">
