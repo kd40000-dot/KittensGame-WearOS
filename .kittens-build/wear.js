@@ -37,6 +37,53 @@
     ops.push({op:'set',path,from:clone(before),value:clone(after)});return ops;
   }
   function isResourceValuePath(path){return /\/resources\/\d+\/value$/.test(path);}
+
+  // Resource production is continuous while the player is offline. A branch may
+  // therefore spend the same capped resource multiple times after it refills.
+  // Raw action deltas alone make that look like an impossible cumulative spend.
+  //
+  // Example:
+  //   10000 -> 3000  (spend 7000)
+  //   passive refill to 10000
+  //   10000 -> 3000  (spend 7000 again)
+  //
+  // The second action's recorded `from` value proves that 7000 regenerated
+  // since the previous action left the resource at 3000. Credit only that
+  // *between-action* refill to the second resource delta. We deliberately do not
+  // credit passive progress before the branch's first recorded action; the
+  // canonical/snapshot carrier is responsible for ordinary shared passive time.
+  //
+  // This keeps genuine cross-device overspends conflicting: two branches that
+  // each spend 7000 once from the same 10000 have no between-action refill
+  // evidence, so their combined cost remains 14000.
+  function creditObservedResourceRefills(entries){
+    const lastTo=new Map();
+    return (entries||[]).map(entry=>{
+      const ops=(entry.ops||[]).map(op=>{
+        if(op&&op.op==='delta'&&isResourceValuePath(op.path)&&
+           typeof op.from==='number'&&Number.isFinite(op.from)&&
+           typeof op.to==='number'&&Number.isFinite(op.to)&&
+           typeof op.delta==='number'&&Number.isFinite(op.delta)){
+          const previousTo=lastTo.get(op.path);
+          let observedRefill=0;
+          if(typeof previousTo==='number'&&Number.isFinite(previousTo)&&op.from>previousTo+1e-9){
+            observedRefill=op.from-previousTo;
+          }
+          lastTo.set(op.path,op.to);
+          if(observedRefill>0){
+            return {...op,rawDelta:op.delta,observedRefill,delta:op.delta+observedRefill};
+          }
+        }
+        if(op&&op.op==='delta'&&isResourceValuePath(op.path)&&
+           typeof op.to==='number'&&Number.isFinite(op.to)){
+          lastTo.set(op.path,op.to);
+        }
+        return op;
+      });
+      return {...entry,ops};
+    });
+  }
+
   function applyOps(base,ops,conflicts,entry){
     let out=base;
     for(const op of ops){
@@ -54,7 +101,9 @@
     return out;
   }
   function merge(common,branches){
-    const entries=[].concat(...branches.map(b=>(b.entries||[]).map(e=>({...e,deviceId:e.deviceId||b.deviceId}))));
+    const entries=[].concat(...branches.map(b=>
+      creditObservedResourceRefills((b.entries||[]).map(e=>({...e,deviceId:e.deviceId||b.deviceId})))
+    ));
     entries.sort((a,b)=>(a.time-b.time)||String(a.deviceId).localeCompare(String(b.deviceId))||(a.seq-b.seq));
     let merged=clone(common);const conflicts=[];
     for(const entry of entries)merged=applyOps(merged,entry.ops||[],conflicts,entry);
@@ -120,7 +169,7 @@
     }
     return {schema:SCHEMA,deviceId,attach,checkpoint,journal,clearJournal,discardThrough,record,runAction,diff,merge,getCheckpoint:()=>read(deviceId,'checkpoint',null)};
   }
-  global.KittensPlanA={SCHEMA,create,diff,merge};
+  global.KittensPlanA={SCHEMA,create,diff,merge,creditObservedResourceRefills};
 })(window);
 
 
