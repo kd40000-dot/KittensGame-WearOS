@@ -16,7 +16,7 @@
     for(let i=0;i<parts.length-1;i++){const k=Array.isArray(cur)?Number(parts[i]):parts[i];cur=cur[k];}
     const last=Array.isArray(cur)?Number(parts.at(-1)):parts.at(-1);cur[last]=value;return root;
   }
-  function isVolatilePath(path){return path==='/time/timestamp';}
+  function isVolatilePath(path){return path==='/time/timestamp'||path==='/game/colorScheme'||path==='/game/unlockedSchemes'||path.startsWith('/game/unlockedSchemes/');}
   function diff(before,after,path='',ops=[]){
     if(isVolatilePath(path))return ops;
     if(same(before,after))return ops;
