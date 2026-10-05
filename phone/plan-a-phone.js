@@ -6,6 +6,26 @@
   var planA=null,mailbox=null,cloud=null,syncTimer=0,syncBusy=false,syncAgain=false,pollTimer=0;
   var status={configured:false,verified:false,busy:false,message:'Plan A is not configured.',lastResult:null};
 
+  function normalizeDraculaSave(save){
+    if(!save||typeof save!=='object')return save;
+    if(!save.game)save.game={};
+    save.game.colorScheme='dracula';
+    var schemes=Array.isArray(save.game.unlockedSchemes)?save.game.unlockedSchemes.slice():[];
+    if(schemes.indexOf('dracula')<0)schemes.unshift('dracula');
+    save.game.unlockedSchemes=schemes;
+    return save;
+  }
+  function getDraculaSave(){
+    return normalizeDraculaSave(game.save());
+  }
+  function forceDraculaLocal(){
+    if(!window.game)return;
+    game.colorScheme='dracula';
+    if(!Array.isArray(game.unlockedSchemes))game.unlockedSchemes=[];
+    if(game.unlockedSchemes.indexOf('dracula')<0)game.unlockedSchemes.unshift('dracula');
+    try{if(game.ui&&game.ui.updateOptions)game.ui.updateOptions();}catch(e){console.warn('Could not apply Dracula UI',e);}
+  }
+
   function emit(message,extra){
     status.message=message||status.message;
     if(extra){for(var k in extra){if(Object.prototype.hasOwnProperty.call(extra,k)){status[k]=extra[k];}}}
@@ -51,7 +71,7 @@
     }
     planA=KittensPlanA.create({
       deviceId:'phone',
-      getSave:function(){return game.save();},
+      getSave:function(){return getDraculaSave();},
       onEntry:function(){scheduleAutoSync();}
     });
     planA.attach();
@@ -61,8 +81,8 @@
       deviceId:'phone',
       planA:planA,
       mailbox:mailbox,
-      getSave:function(){return game.save();},
-      applySave:function(save){return importSaveObject(save);}
+      getSave:function(){return getDraculaSave();},
+      applySave:function(save){return importSaveObject(normalizeDraculaSave(save));}
     });
     emit(getToken()?'Plan A ready. Verify GitHub access.':'Plan A ready. Add your GitHub token.',{configured:!!getToken()});
   }
@@ -74,13 +94,15 @@
         var backup='com.nuclearunicorn.kittengame.planA.backup';
         var previous=LCstorage[key];
         if(previous)LCstorage[backup]=previous;
+        save=normalizeDraculaSave(save);
         var text=game.compressLZData(JSON.stringify(save));
         game.saveImportDropboxText(text,function(error){
           if(error){
-            try{if(previous){LCstorage[key]=previous;game.load();game.render();}}catch(e){}
+            try{if(previous){LCstorage[key]=previous;game.load();forceDraculaLocal();game.render();}}catch(e){}
             reject(new Error(String(error)));
             return;
           }
+          try{forceDraculaLocal();game.save();game.render();}catch(e){console.warn('Could not persist Dracula after Plan A import',e);}
           resolve();
         });
       }catch(e){reject(e);}
@@ -216,7 +238,7 @@
   }
   function init(){
     if(!window.game||typeof game.save!=='function')return false;
-    ensureRuntime();startPolling();return true;
+    forceDraculaLocal();ensureRuntime();startPolling();return true;
   }
 
   global.KittensPlanAPhone={
