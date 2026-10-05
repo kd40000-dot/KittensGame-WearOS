@@ -67,6 +67,7 @@ jobs:
           cp .kittens-build/app-build.gradle wear-kittens/app/build.gradle
 
           cp .kittens-build/wear.js wear-kittens/app/src/main/assets/game/wear.js
+          cat .kittens-build/dracula-wear.css >> wear-kittens/app/src/main/assets/game/wear.css
 
           keytool -genkeypair -v             -keystore wear-kittens/personal.jks             -storepass kittenswear-1.1.5             -keypass kittenswear-1.1.5             -alias kittens             -keyalg RSA -keysize 2048 -validity 36500             -dname "CN=Kittens Wear Personal Build, O=Personal, C=ES"
 
