@@ -184,6 +184,50 @@
       return {branches,headReads};
     }
 
+    function summarizeConflict(result,loaded,canonical){
+      const byDevice={};
+      for(const b of loaded.branches){
+        byDevice[b.deviceId]={
+          deviceId:b.deviceId,
+          baseRevision:b.baseRevision,
+          lastSeq:b.lastSeq,
+          batchIds:b.batchIds||[],
+          snapshotPath:b.snapshotPath||null,
+          snapshotCapturedAt:b.snapshotCapturedAt||0
+        };
+      }
+      const id=canonical.revision.revision+'-p'+(byDevice.phone&&byDevice.phone.lastSeq||0)+'-w'+(byDevice.watch&&byDevice.watch.lastSeq||0);
+      return {
+        schema:1,state:'active',id,
+        canonicalRevision:canonical.revision.revision,
+        canonicalRevisionPath:canonical.path,
+        detectedAt:Date.now(),detectedBy:deviceId,
+        branches:byDevice,
+        conflicts:(result.conflicts||[]).map(c=>({
+          deviceId:c.entry&&c.entry.deviceId||null,
+          seq:c.entry&&c.entry.seq||null,
+          label:c.entry&&c.entry.label||'action',
+          reason:c.reason||'conflict',
+          path:c.path||null
+        }))
+      };
+    }
+
+    async function publishConflict(result,loaded,canonical){
+      const next=summarizeConflict(result,loaded,canonical);
+      const current=await mailbox.readConflict();
+      if(current&&current.json&&current.json.state==='active'&&current.json.id===next.id)return current.json;
+      const written=await mailbox.updateConflict(next,current&&current.sha);
+      if(written.conflict)return (await mailbox.readConflict()).json;
+      return next;
+    }
+
+    async function getActiveConflict(){
+      await ensurePrivate();
+      const c=await mailbox.readConflict();
+      return c&&c.json&&c.json.state==='active'?c.json:null;
+    }
+
     async function reconcileCloud(){
       await ensurePrivate();
       const canonical=await readCanonicalRevision();
@@ -191,7 +235,12 @@
 
       const loaded=await loadBranches(canonical.revision);
       const result=global.KittensPlanAOrchestrator.reconcile(canonical.revision,loaded.branches);
-      if(!result.ok)return result;
+      if(!result.ok){
+        if(result.type==='merge-conflict'){
+          result.cloudConflict=await publishConflict(result,loaded,canonical);
+        }
+        return result;
+      }
       if(result.type==='no-op')return {ok:true,type:'no-op',canonical:canonical.revision};
 
       const mergedSave=result.mergedSave;
@@ -226,6 +275,69 @@
         ack.push({deviceId:b.deviceId,ok:!a.conflict});
       }
       return {ok:true,type:result.type,revision,canonicalHead:nextHead,ack};
+    }
+
+    async function resolveConflict(choice){
+      await ensurePrivate();
+      if(!['phone','watch','canonical'].includes(choice))throw new Error('Unknown conflict resolution choice: '+choice);
+
+      const conflictRead=await mailbox.readConflict();
+      if(!conflictRead||!conflictRead.json||conflictRead.json.state!=='active')return {ok:false,type:'no-active-conflict'};
+      const conflict=conflictRead.json;
+      const canonical=await readCanonicalRevision();
+      if(!canonical)return {ok:false,type:'needs-bootstrap'};
+      if(conflict.canonicalRevision!==canonical.revision.revision){
+        const resolved={...conflict,state:'superseded',resolvedAt:Date.now(),resolution:'canonical-advanced',resolutionRevision:canonical.revision.revision};
+        await mailbox.updateConflict(resolved,conflictRead.sha);
+        return {ok:false,type:'conflict-superseded',canonical:canonical.revision.revision};
+      }
+
+      let chosenSave=JSON.parse(JSON.stringify(canonical.revision.save));
+      if(choice!=='canonical'){
+        const info=conflict.branches&&conflict.branches[choice];
+        if(!info||!info.snapshotPath)throw new Error('The '+choice+' conflict branch has no recoverable snapshot.');
+        const snapshot=await mailbox.readSnapshot(info.snapshotPath);
+        if(!snapshot||!snapshot.json||!snapshot.json.save)throw new Error('The '+choice+' conflict snapshot is missing.');
+        chosenSave=JSON.parse(JSON.stringify(snapshot.json.save));
+      }
+
+      const hash=await sha256(JSON.stringify(chosenSave));
+      const revision=global.KittensPlanAOrchestrator.makeRevision(
+        canonical.revision,chosenSave,
+        DEVICES.map(id=>{
+          const b=conflict.branches&&conflict.branches[id];
+          return b?{deviceId:id,baseRevision:b.baseRevision,lastSeq:b.lastSeq,batchIds:b.batchIds||[],snapshotPath:b.snapshotPath||null}:null;
+        }).filter(Boolean),
+        hash,Date.now()
+      );
+      revision.conflictResolution={conflictId:conflict.id,choice,resolvedBy:deviceId};
+
+      const written=await mailbox.writeRevision(revision);
+      const nextHead={
+        schema:1,revision:revision.revision,revisionPath:written.path,sha256:hash,
+        parentRevision:canonical.revision.revision,updatedAt:Date.now(),
+        conflictResolution:{id:conflict.id,choice,resolvedBy:deviceId}
+      };
+      const advanced=await mailbox.updateCanonical(nextHead,canonical.head.sha);
+      if(advanced.conflict)return {ok:false,type:'canonical-race',retry:true};
+
+      const ack=[];
+      for(const id of DEVICES){
+        const h=await mailbox.readDeviceHead(id);
+        if(!h||!h.json)continue;
+        const lastSeq=Number(h.json.lastSeq)||0;
+        const next={
+          schema:1,deviceId:id,baseRevision:revision.revision,lastSeq,
+          acknowledgedSeq:lastSeq,pendingBatches:[],
+          snapshotPath:null,snapshotCapturedAt:null,snapshotSha256:null,updatedAt:Date.now()
+        };
+        const u=await mailbox.updateDeviceHead(id,next,h.sha);
+        ack.push({deviceId:id,ok:!u.conflict});
+      }
+
+      const resolved={...conflict,state:'resolved',resolvedAt:Date.now(),resolution:choice,resolvedBy:deviceId,resolutionRevision:revision.revision};
+      const cleared=await mailbox.updateConflict(resolved,conflictRead.sha);
+      return {ok:!cleared.conflict,type:'resolved',choice,revision,canonicalHead:nextHead,ack};
     }
 
     async function adoptCanonical(){
@@ -296,7 +408,7 @@
       return {ok:true,type:'applied',revision:canonical.revision};
     }
 
-    return {bootstrapFromLocal,adoptCanonical,publishLocal,reconcileCloud,pullCanonical,readCanonicalRevision,loadState};
+    return {bootstrapFromLocal,adoptCanonical,publishLocal,reconcileCloud,pullCanonical,readCanonicalRevision,getActiveConflict,resolveConflict,loadState};
   }
 
   global.KittensPlanACloud={create};
