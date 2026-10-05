@@ -3,7 +3,7 @@ name: Build Kittens HUD v2 Wear App
 on:
   push:
     branches:
-      - kittens-hud-v2-app
+      - kittens-hud-ironwill-app
   workflow_dispatch:
 
 permissions:
@@ -76,11 +76,11 @@ jobs:
         run: |
           set -euo pipefail
           gradle :app:assembleRelease --no-daemon --stacktrace
-          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Kittens-WearOS5-1.1.5-HUDv2.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Kittens-WearOS5-1.1.5-IronWillHUD.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Kittens-WearOS5-1.1.5-HUDv2
-          path: Kittens-WearOS5-1.1.5-HUDv2.apk
+          name: Kittens-WearOS5-1.1.5-IronWillHUD
+          path: Kittens-WearOS5-1.1.5-IronWillHUD.apk
           if-no-files-found: error
           retention-days: 7
