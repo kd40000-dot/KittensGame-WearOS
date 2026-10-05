@@ -85,6 +85,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Kittens-WearOS5-1.1.5-PlanA
-          path: Kittens-WearOS5-1.1.5.apk
+          path: Kittens-WearOS5-1.1.5-PlanA.apk
           if-no-files-found: error
           retention-days: 7
