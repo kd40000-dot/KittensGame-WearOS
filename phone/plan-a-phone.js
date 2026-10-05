@@ -242,8 +242,16 @@
     if(syncBusy){syncAgain=true;return Promise.resolve({ok:true,type:'queued'});}
     syncBusy=true;status.busy=true;emit('Syncing with GitHub…');
     return verify()
-      .then(function(){return cloud.publishLocal();})
+      .then(function(){return cloud.getActiveConflict();})
+      .then(function(conflict){
+        if(conflict){
+          showConflictModal(conflict,true);
+          return {__activeConflict:conflict};
+        }
+        return cloud.publishLocal();
+      })
       .then(function(pub){
+        if(pub&&pub.__activeConflict)return {__blockedByConflict:pub.__activeConflict};
         if(pub&&pub.type==='needs-bootstrap')throw new Error('Canonical sync has not been initialized yet.');
         if(pub&&pub.type==='needs-adoption')throw new Error('This phone has not adopted the existing canonical baseline yet. Use Adopt existing canonical first.');
         if(pub&&pub.ok===false){
@@ -253,6 +261,9 @@
         return cloud.reconcileCloud().then(function(rec){return {pub:pub,rec:rec};});
       })
       .then(function(x){
+        if(x&&x.__blockedByConflict){
+          return {ok:false,type:'merge-conflict',cloudConflict:x.__blockedByConflict};
+        }
         if(!x.rec.ok){
           if(x.rec.type==='merge-conflict'){
             var conflict=x.rec.cloudConflict||null;
