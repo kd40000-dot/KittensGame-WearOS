@@ -702,7 +702,6 @@
  async function initPlanACloud(){
   if(!planASync&&window.KittensPlanA){
    planASync=KittensPlanA.create({deviceId:'watch',getSave:()=>game.save(),onEntry:()=>schedulePlanACloud()});
-   planASync.attach();
    if(!planASync.getCheckpoint())await planASync.checkpoint(game.save());
   }
   if(planACloud)return true;
@@ -744,6 +743,10 @@
     if(showUi)opError('Plan A needs first-time adoption',{operation:'github-sync',type:'NeedsAdoption',message:x.message,detail:'Open Plan A + GitHub on the watch and choose Adopt canonical baseline.'});
     return x;
    }
+   if(pub&&pub.ok===false){
+    if(pub.retry){schedulePlanACloud(700);return pub;}
+    throw new Error('Watch publication failed: '+pub.type);
+   }
    const rec=await planACloud.reconcileCloud();
    if(!rec.ok){
     if(rec.type==='merge-conflict'){
@@ -755,6 +758,15 @@
     throw new Error('Reconciliation failed: '+rec.type);
    }
    const pull=await planACloud.pullCanonical();
+   if(pull&&pull.ok===false){
+    if(pull.type==='local-unpublished-actions'){
+     status('Plan A: newer watch actions queued');
+     schedulePlanACloud(500);
+     return {ok:false,type:pull.type,publish:pub,reconcile:rec,pull:pull};
+    }
+    if(pull.retry){schedulePlanACloud(700);return {ok:false,type:pull.type,publish:pub,reconcile:rec,pull:pull};}
+    throw new Error('Canonical pull failed: '+pull.type);
+   }
    status('Plan A synced · '+(rec.type||pull.type));
    if(showUi)detail('<h2>Plan A synced</h2><p><b>Result:</b> '+wearEsc(rec.type)+'</p><p><b>Local journal:</b> '+wearEsc(planASync.journal().length)+' pending actions</p>');
    return {ok:true,type:rec.type,publish:pub,reconcile:rec,pull:pull};
@@ -798,6 +810,20 @@
 
  function installDetails(){
   com.nuclearunicorn.game.ui.ContentRowRenderer.prototype.initRenderer=function(content){this.content=content;this.twoRows=false;};
+
+  // Journal the actual Kittens Game button transaction synchronously. This is
+  // more reliable on Wear/Gecko than inferring game actions from DOM touch/click
+  // propagation, and captures the state immediately before/after buyItem().
+  const buttonProto=com.nuclearunicorn.game.ui.Button.prototype;
+  if(!buttonProto._planAOriginalOnClick){
+   buttonProto._planAOriginalOnClick=buttonProto.onClick;
+   buttonProto.onClick=function(event){
+    const original=buttonProto._planAOriginalOnClick;
+    if(!planASync)return original.call(this,event);
+    const label=(this.model&&this.model.name)||(this.opts&&this.opts.name)||'Kittens action';
+    return planASync.runAction(String(label).replace(/<[^>]+>/g,''),original,this,[event]);
+   };
+  }
   const attach=UIUtils.attachTooltip;
   UIUtils.attachTooltip=function(g,container,top,left,provider){container._wearTip=()=>provider.call(g);return provider;};
   const original=com.nuclearunicorn.game.ui.Button.prototype.render;
