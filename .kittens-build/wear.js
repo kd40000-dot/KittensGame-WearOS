@@ -820,6 +820,12 @@
     if(showUi)opError('Plan A sync unavailable',{operation:'github-sync',type:'NotConfigured',message:x.message,detail:'Open Watch Sync on the phone and provision this watch during an active Transfer save session.'});
     return x;
    }
+   const existingConflict=await planACloud.getActiveConflict();
+   if(existingConflict){
+    status('Plan A conflict · resolve on phone');
+    if(showUi)showPlanAConflict(existingConflict);
+    return {ok:false,type:'merge-conflict',cloudConflict:existingConflict};
+   }
    if(showUi)status('Plan A: publishing watch actions…');
    const pub=await planACloud.publishLocal();
    if(pub.type==='needs-bootstrap'){
@@ -878,9 +884,13 @@
 
  function showPlanAConflict(rec){
   const box=node('div');box.append(node('h2',{},'Plan A merge conflict'));
-  box.append(node('p',{},'Both devices changed from the same common revision, but the changes cannot be combined safely. No save has been replaced.'));
-  (rec.conflicts||[]).slice(0,20).forEach(c=>box.append(node('p',{},((c.entry&&c.entry.deviceId)||'device')+' · '+((c.entry&&c.entry.label)||'action')+' · '+(c.reason||'conflict')+' · '+(c.path||''))));
-  box.append(node('p',{},'Conflict choice controls will be added on the phone, where there is more screen space.'));
+  box.append(node('p',{},'Both devices changed while apart and the changes cannot be combined safely. No save has been replaced.'));
+  (rec.conflicts||[]).slice(0,20).forEach(c=>{
+   const device=(c.entry&&c.entry.deviceId)||c.deviceId||'device';
+   const label=(c.entry&&c.entry.label)||c.label||'action';
+   box.append(node('p',{},device+' · '+label+' · '+(c.reason||'conflict')+(c.path?' · '+c.path:'')));
+  });
+  box.append(node('p',{},'The conflict is stored in GitHub. Open the phone app; a resolution popup should appear within about 10 seconds with Keep Phone, Keep Watch, and Keep Current Canonical choices.'));
   $id('wearDetailBody').replaceChildren(box);$id('wearDetail').hidden=false;$id('wearDetail').scrollTop=0;
  }
  async function showPlanACloud(){
