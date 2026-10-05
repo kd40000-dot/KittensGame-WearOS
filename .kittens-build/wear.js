@@ -1034,9 +1034,16 @@
    buttonProto._planAOriginalOnClick=buttonProto.onClick;
    buttonProto.onClick=function(event){
     const original=buttonProto._planAOriginalOnClick;
-    if(!planASync)return original.call(this,event);
-    const label=(this.model&&this.model.name)||(this.opts&&this.opts.name)||'Kittens action';
-    return planASync.runAction(String(label).replace(/<[^>]+>/g,''),original,this,[event]);
+    let result;
+    if(!planASync)result=original.call(this,event);
+    else{
+     const label=(this.model&&this.model.name)||(this.opts&&this.opts.name)||'Kittens action';
+     result=planASync.runAction(String(label).replace(/<[^>]+>/g,''),original,this,[event]);
+    }
+    // Push post-transaction resource values immediately so complication slots
+    // reflect spends/crafts/builds without waiting for the periodic snapshot.
+    Promise.resolve().then(()=>syncComplication(true)).catch(()=>{});
+    return result;
    };
   }
   const attach=UIUtils.attachTooltip;
