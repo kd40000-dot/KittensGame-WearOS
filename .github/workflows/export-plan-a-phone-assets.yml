@@ -1,0 +1,32 @@
+name: Export Plan A Phone Assets
+
+on:
+  push:
+    branches:
+      - plan-a-github-sync
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bundle phone sync assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/sync out/phone
+          cp sync/plan-a-core.js out/sync/
+          cp sync/plan-a-orchestrator.js out/sync/
+          cp sync/github-mailbox.js out/sync/
+          cp sync/plan-a-cloud.js out/sync/
+          cp phone/plan-a-phone.js out/phone/
+          cp phone/plan-a-ui.js out/phone/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kittens-PlanA-Phone-Assets
+          path: out
+          if-no-files-found: error
+          retention-days: 7
