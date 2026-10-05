@@ -474,7 +474,7 @@
 (function(){
  'use strict';
  const KEY='com.nuclearunicorn.kittengame.savedata';
- let ready=false, suspended=false, lastTabList='', page='play', lastComplicationSync=0, transferPoll=0, planASync=null, planAMailbox=null, planACloud=null, planACloudTimer=0, planACloudBusy=false;
+ let ready=false, suspended=false, lastTabList='', page='play', lastComplicationSync=0, transferPoll=0, planASync=null, planAMailbox=null, planACloud=null, planACloudTimer=0, planACloudBusy=false, planAPollTimer=0;
  const $id=id=>document.getElementById(id);
  function node(tag,attrs,text){let n=document.createElement(tag);Object.assign(n,attrs||{});if(text!==undefined)n.textContent=text;return n;}
  function button(text,fn,parent){let b=node('button',{type:'button',className:'wear-button'},text);b.onclick=fn;parent.appendChild(b);return b;}
@@ -641,6 +641,10 @@
   });
   return true;
  }
+ function startPlanAPolling(){
+  if(planAPollTimer)return;
+  planAPollTimer=setInterval(()=>{if(ready)planACloudSync(false).catch(()=>{});},10000);
+ }
  function schedulePlanACloud(delay){
   clearTimeout(planACloudTimer);
   planACloudTimer=setTimeout(()=>{planACloudSync(false).catch(e=>console.warn('Plan A auto sync failed',e));},delay==null?900:delay);
@@ -750,7 +754,7 @@
    classes.game.Server.prototype.refresh=function(){};classes.game.Server.prototype.fetchBcoinPrice=function(){return $.Deferred().resolve().promise();};installDetails();originalInit();
    if(!window.game||!game.resPool)throw Error('Game engine did not initialize');
    ready=true;game.opts.disableTelemetry=true;game.opts.enableRedshift=true;game.opts.useWorkers=false;game.autosaveFrequency=50;
-   try{await initPlanACloud();}catch(e){console.warn('Plan A initialization failed',e);}
+   try{await initPlanACloud();startPlanAPolling();}catch(e){console.warn('Plan A initialization failed',e);startPlanAPolling();}
    status('Offline · saved on this watch');go('play');
    syncComplication(true);
    setInterval(()=>{if(!document.hidden){update();syncComplication(false);}},1000);
