@@ -31,7 +31,14 @@ jobs:
           git clone --depth 1 https://github.com/google/watchface.git /tmp/google-watchface
           cd /tmp/google-watchface/third_party/wff
           ./gradlew :specification:validator:executable-jar
-          java -jar specification/validator/build/libs/wff-validator.jar 2 "$GITHUB_WORKSPACE/watchface-kittens-village/res/raw/watchface.xml"
+          set +e
+          java -jar specification/validator/build/libs/wff-validator.jar 2 "$GITHUB_WORKSPACE/watchface-kittens-village/res/raw/watchface.xml" 2>&1 | tee /tmp/wff-validator.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ] || grep -q "❌  FAILED" /tmp/wff-validator.log; then
+            echo "WFF validation failed"
+            exit 1
+          fi
 
       - name: Install Android SDK
         shell: bash
