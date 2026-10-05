@@ -92,7 +92,8 @@
     }
     function arm(label){
       if(armed)return;armed=true;before=clone(getSave());
-      setTimeout(async()=>{try{const after=clone(getSave());await record(label,before,after);}finally{armed=false;before=null;}},0);
+      const finish=async()=>{try{const after=clone(getSave());await record(label,before,after);}finally{armed=false;before=null;}};
+      if(typeof queueMicrotask==='function')queueMicrotask(finish);else Promise.resolve().then(finish);
     }
     function attach(){
       document.addEventListener('click',e=>{
@@ -110,6 +111,8 @@
 (function(global){
   'use strict';
 
+  const clone=v=>JSON.parse(JSON.stringify(v));
+
   function branchChanged(branch){
     return !!(branch && Array.isArray(branch.entries) && branch.entries.length);
   }
@@ -122,31 +125,61 @@
     return {ok:true};
   }
 
+  function snapshotTime(branch){
+    return Number(branch && branch.snapshot && branch.snapshot.capturedAt)
+      || Number(branch && branch.snapshotCapturedAt)
+      || 0;
+  }
+
   function reconcile(canonical, branches){
     if(!canonical || !canonical.save || canonical.revision == null) throw new Error('Canonical checkpoint is incomplete.');
     const active=(branches||[]).filter(branchChanged);
-    for(const branch of active){
-      const v=validateBranch(branch,canonical);
-      if(!v.ok) return {ok:false,type:'stale-branch',conflicts:[v],canonical};
-    }
-    if(active.length===0) return {ok:true,type:'no-op',canonical,mergedSave:canonical.save,applied:[]};
+    if(active.length===0) return {ok:true,type:'no-op',canonical,mergedSave:clone(canonical.save),applied:[]};
 
-    const mergeBranches=active.map(b=>({deviceId:b.deviceId,entries:b.entries}));
-    const result=global.KittensPlanA.merge(canonical.save,mergeBranches);
+    const current=active.filter(b=>b.baseRevision===canonical.revision);
+    const stale=active.filter(b=>b.baseRevision!==canonical.revision);
+
+    // A current-revision snapshot may carry passive progress. A stale snapshot is
+    // never used as the carrier because the canonical save already contains changes
+    // committed after that branch's common ancestor. Stale branches contribute
+    // their explicit action journal only.
+    const snapshotBranches=current.filter(b=>b.snapshot&&b.snapshot.save);
+    let base=clone(canonical.save),carrier=null;
+    if(snapshotBranches.length){
+      carrier=snapshotBranches.slice().sort((a,b)=>{
+        const timeDiff=snapshotTime(b)-snapshotTime(a);
+        return timeDiff||String(a.deviceId).localeCompare(String(b.deviceId));
+      })[0];
+      base=clone(carrier.snapshot.save);
+    }
+
+    const replay=active
+      .filter(b=>b!==carrier)
+      .map(b=>({deviceId:b.deviceId,entries:b.entries}));
+
+    if(!replay.length){
+      return {
+        ok:true,type:carrier?'fast-forward-snapshot':'fast-forward',
+        canonical,mergedSave:base,carrierDeviceId:carrier&&carrier.deviceId,
+        staleDevices:stale.map(b=>b.deviceId),
+        applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
+      };
+    }
+
+    const result=global.KittensPlanA.merge(base,replay);
     if(!result.ok){
       return {
-        ok:false,
-        type:'merge-conflict',
-        canonical,
-        conflicts:result.conflicts,
+        ok:false,type:'merge-conflict',canonical,conflicts:result.conflicts,
+        carrierDeviceId:carrier&&carrier.deviceId,
+        staleDevices:stale.map(b=>b.deviceId),
         applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
       };
     }
     return {
-      ok:true,
-      type:active.length===1?'fast-forward':'merged',
-      canonical,
-      mergedSave:result.merged,
+      ok:true,type:stale.length?'merged-stale':'merged',
+      canonical,mergedSave:result.merged,
+      carrierDeviceId:carrier&&carrier.deviceId,
+      staleDevices:stale.map(b=>b.deviceId),
       applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
     };
   }
@@ -165,13 +198,16 @@
         deviceId:h.deviceId,
         baseRevision:h.baseRevision,
         lastSeq:h.lastSeq||0,
-        batchIds:h.batchIds||[]
+        batchIds:h.batchIds||[],
+        snapshotPath:h.snapshotPath||null,
+        snapshotCapturedAt:h.snapshotCapturedAt||null
       }))
     };
   }
 
   global.KittensPlanAOrchestrator={reconcile,makeRevision,validateBranch};
 })(window);
+
 
 (function(global){
   'use strict';
@@ -220,6 +256,14 @@
       if(w.conflict)throw new Error('Unexpected append-only event collision for '+id);
       return {id,path,...w};
     }
+    async function appendSnapshot(device,snapshot){
+      const id=snapshot.id||((snapshot.capturedAt||Date.now())+'-'+device+'-'+Math.random().toString(16).slice(2));
+      const path='devices/'+device+'/snapshots/'+id+'.json';
+      const w=await write(path,snapshot,'Append '+device+' branch snapshot '+id);
+      if(w.conflict)throw new Error('Unexpected append-only snapshot collision for '+id);
+      return {id,path,...w};
+    }
+    async function readSnapshot(path){return read(path);}
     async function readDeviceHead(device){return read('devices/'+device+'/head.json');}
     async function updateDeviceHead(device,head,expectedSha){
       const path='devices/'+device+'/head.json';
@@ -239,10 +283,11 @@
     async function updateCanonical(head,expectedSha){
       return write('canonical/head.json',head,'Advance canonical Kittens revision',expectedSha);
     }
-    return {owner,repo,branch,verifyPrivate,read,write,appendBatch,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical};
+    return {owner,repo,branch,verifyPrivate,read,write,appendBatch,appendSnapshot,readSnapshot,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical};
   }
   global.KittensGitHubMailbox={create};
 })(window);
+
 
 (function(global){
   'use strict';
@@ -329,32 +374,49 @@
       if(!entries.length)return {ok:true,type:'no-op',published:0};
 
       const first=entries[0].seq,last=entries.at(-1).seq;
+      const capturedAt=Date.now();
+      const publicationId=deviceId+'-'+first+'-'+last+'-'+capturedAt;
+      const snapshotSave=JSON.parse(JSON.stringify(getSave()));
+      const snapshotHash=await sha256(JSON.stringify(snapshotSave));
       const batch={
         schema:1,
-        id:deviceId+'-'+first+'-'+last+'-'+Date.now(),
+        id:publicationId,
         deviceId,
         baseRevision:state.baseRevision,
-        createdAt:Date.now(),
+        createdAt:capturedAt,
         firstSeq:first,lastSeq:last,
         entries
       };
+      const snapshot={
+        schema:1,
+        id:publicationId,
+        deviceId,
+        baseRevision:state.baseRevision,
+        capturedAt,
+        lastSeq:last,
+        sha256:snapshotHash,
+        save:snapshotSave
+      };
       const appended=await mailbox.appendBatch(deviceId,batch);
+      const snapped=await mailbox.appendSnapshot(deviceId,snapshot);
       const current=await mailbox.readDeviceHead(deviceId);
       const currentHead=current&&current.json;
       if(currentHead&&currentHead.baseRevision!==state.baseRevision){
-        return {ok:false,type:'device-head-rebased',current:currentHead,batchPath:appended.path};
+        return {ok:false,type:'device-head-rebased',current:currentHead,batchPath:appended.path,snapshotPath:snapped.path};
       }
       const pending=[...new Set([...(currentHead&&currentHead.pendingBatches||[]),appended.path])];
       const next={
         schema:1,deviceId,baseRevision:state.baseRevision,
-        lastSeq:last,pendingBatches:pending,updatedAt:Date.now()
+        lastSeq:last,pendingBatches:pending,
+        snapshotPath:snapped.path,snapshotCapturedAt:capturedAt,snapshotSha256:snapshotHash,
+        updatedAt:Date.now()
       };
       const updated=await mailbox.updateDeviceHead(deviceId,next,current&&current.sha);
-      if(updated.conflict)return {ok:false,type:'device-head-race',batchPath:appended.path};
+      if(updated.conflict)return {ok:false,type:'device-head-race',batchPath:appended.path,snapshotPath:snapped.path};
 
       state.lastPublishedSeq=last;
       saveState(state);
-      return {ok:true,type:'published',published:entries.length,batchPath:appended.path,lastSeq:last};
+      return {ok:true,type:'published',published:entries.length,batchPath:appended.path,snapshotPath:snapped.path,lastSeq:last};
     }
 
     async function loadBranches(canonicalRevision){
@@ -370,11 +432,21 @@
           if(!b)throw new Error('Missing event batch '+path);
           entries.push(...(b.json.entries||[]));
         }
+        let snapshot=null;
+        if(h.json.snapshotPath){
+          const s=await mailbox.readSnapshot(h.json.snapshotPath);
+          if(!s)throw new Error('Missing device snapshot '+h.json.snapshotPath);
+          if(s.json.baseRevision!==h.json.baseRevision)throw new Error('Snapshot base revision does not match device head.');
+          snapshot=s.json;
+        }
         branches.push({
           deviceId:id,
           baseRevision:h.json.baseRevision,
           lastSeq:h.json.lastSeq||maxSeq(entries),
           batchIds:h.json.pendingBatches.slice(),
+          snapshotPath:h.json.snapshotPath||null,
+          snapshotCapturedAt:h.json.snapshotCapturedAt||snapshot&&snapshot.capturedAt||0,
+          snapshot,
           entries
         });
       }
@@ -397,7 +469,8 @@
         canonical.revision,
         mergedSave,
         loaded.branches.map(b=>({
-          deviceId:b.deviceId,baseRevision:b.baseRevision,lastSeq:b.lastSeq,batchIds:b.batchIds
+          deviceId:b.deviceId,baseRevision:b.baseRevision,lastSeq:b.lastSeq,batchIds:b.batchIds,
+          snapshotPath:b.snapshotPath,snapshotCapturedAt:b.snapshotCapturedAt
         })),
         hash,
         Date.now()
@@ -415,7 +488,8 @@
         const read=loaded.headReads[b.deviceId];
         const next={
           schema:1,deviceId:b.deviceId,baseRevision:revision.revision,
-          lastSeq:b.lastSeq,acknowledgedSeq:b.lastSeq,pendingBatches:[],updatedAt:Date.now()
+          lastSeq:b.lastSeq,acknowledgedSeq:b.lastSeq,pendingBatches:[],
+          snapshotPath:null,snapshotCapturedAt:null,snapshotSha256:null,updatedAt:Date.now()
         };
         const a=await mailbox.updateDeviceHead(b.deviceId,next,read&&read.sha);
         ack.push({deviceId:b.deviceId,ok:!a.conflict});
