@@ -107,7 +107,9 @@ final class ComplicationStore {
 
   // A spend/craft/build action must invalidate the visible complication immediately.
   // Otherwise ordinary refreshes may be throttled for several minutes.
-  requestUpdate(c,trackedChanged);
+  // HUD image panels are snapshot-rendered rather than continuously evaluated,
+  // so refresh them whenever the game posts its current resource state.
+  requestUpdate(c,true);
  }
 
  static boolean meaningfulStateChange(ResourceInfo before,ResourceInfo now){
@@ -179,7 +181,7 @@ final class ComplicationStore {
   long now=System.currentTimeMillis(),last=prefs(c).getLong(KEY_LAST_UPDATE_REQUEST,0);
   if(!force&&now-last<UPDATE_MIN_INTERVAL_MS)return;
   try{
-   ComplicationDataSourceUpdateRequester.create(c,new ComponentName(c,KittensComplicationService.class)).requestUpdateAll();
+   HudUpdateRequester.requestAll(c);
    prefs(c).edit().putLong(KEY_LAST_UPDATE_REQUEST,now).apply();
   }catch(Throwable ignored){}
  }
