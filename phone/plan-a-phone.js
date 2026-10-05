@@ -3,7 +3,7 @@
 
   var TOKEN_KEY='com.nuclearunicorn.kittengame.planA.githubToken';
   var OWNER='kd40000-dot',REPO='KittensGame-Sync',BRANCH='main';
-  var planA=null,mailbox=null,cloud=null,syncTimer=0,syncBusy=false,syncAgain=false;
+  var planA=null,mailbox=null,cloud=null,syncTimer=0,syncBusy=false,syncAgain=false,pollTimer=0;
   var status={configured:false,verified:false,busy:false,message:'Plan A is not configured.',lastResult:null};
 
   function emit(message,extra){
@@ -189,9 +189,20 @@
       return result;
     }).catch(function(e){emit('Watch provisioning failed: '+e.message,{busy:false});throw e;});
   }
+  function startPolling(){
+    if(pollTimer)return;
+    pollTimer=setInterval(function(){
+      try{
+        if(!cloud||!getToken())return;
+        var st=cloud.loadState();
+        if(!st||!st.baseRevision)return;
+        syncNow().catch(function(){});
+      }catch(e){}
+    },10000);
+  }
   function init(){
     if(!window.game||typeof game.save!=='function')return false;
-    ensureRuntime();return true;
+    ensureRuntime();startPolling();return true;
   }
 
   global.KittensPlanAPhone={
