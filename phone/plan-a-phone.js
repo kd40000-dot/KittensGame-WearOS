@@ -122,6 +122,10 @@
       .then(function(pub){
         if(pub&&pub.type==='needs-bootstrap')throw new Error('Canonical sync has not been initialized yet.');
         if(pub&&pub.type==='needs-adoption')throw new Error('This phone has not adopted the existing canonical baseline yet. Use Adopt existing canonical first.');
+        if(pub&&pub.ok===false){
+          if(pub.retry)throw new Error('Phone sync head is busy or changed concurrently. Retrying shortly.');
+          throw new Error('Phone publication failed: '+pub.type);
+        }
         return cloud.reconcileCloud().then(function(rec){return {pub:pub,rec:rec};});
       })
       .then(function(x){
@@ -134,6 +138,16 @@
           throw new Error('Cloud reconciliation failed: '+x.rec.type);
         }
         return cloud.pullCanonical().then(function(pull){
+          if(pull&&pull.ok===false){
+            var waiting={ok:false,type:pull.type,publish:x.pub,reconcile:x.rec,pull:pull};
+            if(pull.type==='local-unpublished-actions'){
+              emit('Plan A published one batch; newer local actions are queued for the next sync.',{busy:false,lastResult:waiting});
+              scheduleAutoSync(500);
+              return waiting;
+            }
+            if(pull.retry){scheduleAutoSync(700);return waiting;}
+            throw new Error('Canonical pull failed: '+pull.type);
+          }
           var result={ok:true,type:x.rec.type,publish:x.pub,reconcile:x.rec,pull:pull};
           emit('Plan A synced successfully ('+x.rec.type+').',{busy:false,lastResult:result});
           return result;
