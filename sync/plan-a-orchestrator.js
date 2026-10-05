@@ -24,57 +24,52 @@
   function reconcile(canonical, branches){
     if(!canonical || !canonical.save || canonical.revision == null) throw new Error('Canonical checkpoint is incomplete.');
     const active=(branches||[]).filter(branchChanged);
-    for(const branch of active){
-      const v=validateBranch(branch,canonical);
-      if(!v.ok) return {ok:false,type:'stale-branch',conflicts:[v],canonical};
-    }
     if(active.length===0) return {ok:true,type:'no-op',canonical,mergedSave:clone(canonical.save),applied:[]};
 
-    // A branch snapshot contains that device's complete present state, including passive
-    // production and all of its own journalled actions. Prefer the newest snapshot as
-    // the passive-state carrier, then replay only the other device's actions onto it.
-    const snapshotBranches=active.filter(b=>b.snapshot&&b.snapshot.save);
+    const current=active.filter(b=>b.baseRevision===canonical.revision);
+    const stale=active.filter(b=>b.baseRevision!==canonical.revision);
+
+    // A current-revision snapshot may carry passive progress. A stale snapshot is
+    // never used as the carrier because the canonical save already contains changes
+    // committed after that branch's common ancestor. Stale branches contribute
+    // their explicit action journal only.
+    const snapshotBranches=current.filter(b=>b.snapshot&&b.snapshot.save);
+    let base=clone(canonical.save),carrier=null;
     if(snapshotBranches.length){
-      const carrier=snapshotBranches.slice().sort((a,b)=>{
+      carrier=snapshotBranches.slice().sort((a,b)=>{
         const timeDiff=snapshotTime(b)-snapshotTime(a);
         return timeDiff||String(a.deviceId).localeCompare(String(b.deviceId));
       })[0];
-      const others=active.filter(b=>b!==carrier).map(b=>({deviceId:b.deviceId,entries:b.entries}));
-      const base=clone(carrier.snapshot.save);
-      if(!others.length){
-        return {
-          ok:true,type:'fast-forward-snapshot',canonical,mergedSave:base,
-          carrierDeviceId:carrier.deviceId,
-          applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
-        };
-      }
-      const result=global.KittensPlanA.merge(base,others);
-      if(!result.ok){
-        return {
-          ok:false,type:'merge-conflict',canonical,conflicts:result.conflicts,
-          carrierDeviceId:carrier.deviceId,
-          applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
-        };
-      }
+      base=clone(carrier.snapshot.save);
+    }
+
+    const replay=active
+      .filter(b=>b!==carrier)
+      .map(b=>({deviceId:b.deviceId,entries:b.entries}));
+
+    if(!replay.length){
       return {
-        ok:true,type:'merged',canonical,mergedSave:result.merged,
-        carrierDeviceId:carrier.deviceId,
+        ok:true,type:carrier?'fast-forward-snapshot':'fast-forward',
+        canonical,mergedSave:base,carrierDeviceId:carrier&&carrier.deviceId,
+        staleDevices:stale.map(b=>b.deviceId),
         applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
       };
     }
 
-    // Compatibility fallback for branches published by an older Plan A client.
-    const mergeBranches=active.map(b=>({deviceId:b.deviceId,entries:b.entries}));
-    const result=global.KittensPlanA.merge(clone(canonical.save),mergeBranches);
+    const result=global.KittensPlanA.merge(base,replay);
     if(!result.ok){
       return {
         ok:false,type:'merge-conflict',canonical,conflicts:result.conflicts,
+        carrierDeviceId:carrier&&carrier.deviceId,
+        staleDevices:stale.map(b=>b.deviceId),
         applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
       };
     }
     return {
-      ok:true,type:active.length===1?'fast-forward':'merged',
+      ok:true,type:stale.length?'merged-stale':'merged',
       canonical,mergedSave:result.merged,
+      carrierDeviceId:carrier&&carrier.deviceId,
+      staleDevices:stale.map(b=>b.deviceId),
       applied:active.map(b=>({deviceId:b.deviceId,count:b.entries.length}))
     };
   }
