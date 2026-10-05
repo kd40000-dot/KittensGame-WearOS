@@ -181,7 +181,7 @@ final class ComplicationStore {
   long now=System.currentTimeMillis(),last=prefs(c).getLong(KEY_LAST_UPDATE_REQUEST,0);
   if(!force&&now-last<UPDATE_MIN_INTERVAL_MS)return;
   try{
-   HudUpdateRequester.requestAll(c);
+   KittensComplicationService.requestHudUpdates(c);
    prefs(c).edit().putLong(KEY_LAST_UPDATE_REQUEST,now).apply();
   }catch(Throwable ignored){}
  }
