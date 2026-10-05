@@ -1,0 +1,38 @@
+name: Export Android APK Tools
+
+on:
+  push:
+    branches:
+      - plan-a-github-sync
+
+permissions:
+  contents: read
+
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdline-tools.zip
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/android-cmdline
+          mv /tmp/android-cmdline/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0"
+          mkdir -p out/lib64
+          cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" out/
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" out/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" out/
+          cp -a "$ANDROID_HOME/build-tools/35.0.0/lib64/." out/lib64/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-APK-Tools-35
+          path: out
+          if-no-files-found: error
+          retention-days: 1
