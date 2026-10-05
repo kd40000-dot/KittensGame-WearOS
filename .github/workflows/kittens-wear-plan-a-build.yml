@@ -1,0 +1,90 @@
+name: Build Kittens Wear Plan A
+
+on:
+  push:
+    branches:
+      - plan-a-github-sync
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdline-tools.zip
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/android-cmdline
+          mv /tmp/android-cmdline/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-36" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Reconstruct project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .kittens-build/overlay.part0 .kittens-build/overlay.part1 .kittens-build/overlay.part2 .kittens-build/overlay.part3 .kittens-build/overlay.part4 > /tmp/kittens-overlay.b64
+          base64 -d /tmp/kittens-overlay.b64 > /tmp/kittens-overlay.tar.gz
+          echo "0f41a4377f30cd1f8a25945f99b29d813709e57751095093d526d0f92ad7b6f1  /tmp/kittens-overlay.tar.gz" | sha256sum -c -
+
+          rm -rf wear-kittens /tmp/kittensgame
+          mkdir -p wear-kittens/app/src/main/assets/game
+          git clone --filter=blob:none https://github.com/nuclear-unicorn/kittensgame.git /tmp/kittensgame
+          git -C /tmp/kittensgame checkout 781e379f79f1e7512d168849cba21ed111502644
+          rsync -a --exclude=.git /tmp/kittensgame/ wear-kittens/app/src/main/assets/game/
+          tar -xzf /tmp/kittens-overlay.tar.gz -C wear-kittens
+
+          cp .kittens-build/KittensComplicationService.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/KittensComplicationService.java
+          cp .kittens-build/ComplicationStore.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/ComplicationStore.java
+          cp .kittens-build/LocalGameServer.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/LocalGameServer.java
+          cp .kittens-build/MainActivity.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/MainActivity.java
+          cp .kittens-build/AndroidManifest.xml wear-kittens/app/src/main/AndroidManifest.xml
+          cp .kittens-build/app-build.gradle wear-kittens/app/build.gradle
+
+          cp .kittens-build/wear.js wear-kittens/app/src/main/assets/game/wear.js
+
+          keytool -genkeypair -v             -keystore wear-kittens/personal.jks             -storepass kittenswear-1.1.5             -keypass kittenswear-1.1.5             -alias kittens             -keyalg RSA -keysize 2048 -validity 36500             -dname "CN=Kittens Wear Personal Build, O=Personal, C=ES"
+
+      - name: Build signed release APK
+        shell: bash
+        working-directory: wear-kittens
+        env:
+          KITTENS_KEYSTORE_PASSWORD: kittenswear-1.1.5
+        run: |
+          set -euo pipefail
+          gradle :app:assembleRelease --no-daemon --stacktrace
+          test -f app/build/outputs/apk/release/app-release.apk
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Kittens-WearOS5-1.1.5-PlanA.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kittens-WearOS5-1.1.5-PlanA
+          path: Kittens-WearOS5-1.1.5.apk
+          if-no-files-found: error
+          retention-days: 7
