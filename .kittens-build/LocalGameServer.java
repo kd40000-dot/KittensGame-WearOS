@@ -141,7 +141,7 @@ final class LocalGameServer {
  private String githubPairingKey(){
   try{
    String key=SecureGithubConfig.publicKeyBase64();
-   return "{\"state\":\"success\",\"algorithm\":\"RSA-OAEP-256\",\"publicKeySpkiBase64\":\""+esc(key)+"\"}";
+   return "{\"state\":\"success\",\"algorithm\":\"RSA-OAEP-SHA1\",\"publicKeySpkiBase64\":\""+esc(key)+"\"}";
   }catch(Throwable e){return errorJson("github-pairing-key",e,"Could not create the watch pairing key.");}
  }
  private String storeGithubConfigEncrypted(String json){
@@ -459,8 +459,8 @@ final class SecureGithubConfig {
  }
  static String decryptPairingPayload(String ciphertextB64)throws Exception{
   byte[] cipherBytes=android.util.Base64.decode(ciphertextB64,android.util.Base64.DEFAULT);
-  Cipher cipher=Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
-  OAEPParameterSpec spec=new OAEPParameterSpec("SHA-256","MGF1",MGF1ParameterSpec.SHA256,PSource.PSpecified.DEFAULT);
+  Cipher cipher=Cipher.getInstance("RSA/ECB/OAEPWithSHA-1AndMGF1Padding");
+  OAEPParameterSpec spec=new OAEPParameterSpec("SHA-1","MGF1",MGF1ParameterSpec.SHA1,PSource.PSpecified.DEFAULT);
   cipher.init(Cipher.DECRYPT_MODE,rsaPair().getPrivate(),spec);
   return new String(cipher.doFinal(cipherBytes),StandardCharsets.UTF_8);
  }
