@@ -82,6 +82,12 @@
     }
     function journal(){return read(deviceId,'journal',[]);}
     function clearJournal(){write(deviceId,'journal',[]);}
+    function discardThrough(seq){
+      seq=Number(seq)||0;
+      const kept=journal().filter(e=>(Number(e.seq)||0)>seq);
+      write(deviceId,'journal',kept);
+      return kept.length;
+    }
     async function record(label,b,a){
       const ops=diff(b,a);if(!ops.length)return null;
       const entry={schema:SCHEMA,deviceId,seq:++seq,time:Date.now(),label:label||'interaction',ops};
@@ -95,6 +101,16 @@
       const finish=async()=>{try{const after=clone(getSave());await record(label,before,after);}finally{armed=false;before=null;}};
       if(typeof queueMicrotask==='function')queueMicrotask(finish);else Promise.resolve().then(finish);
     }
+    function runAction(label,fn,ctx,args){
+      const beforeState=clone(getSave());
+      let result;
+      try{result=fn.apply(ctx||null,args||[]);}
+      finally{
+        try{record(label,beforeState,clone(getSave()));}
+        catch(e){console.warn('Plan A action record failed',e);}
+      }
+      return result;
+    }
     function attach(){
       document.addEventListener('click',e=>{
         const t=e.target&&e.target.closest?e.target.closest('button,a,.btn,.button'):null;
@@ -102,7 +118,7 @@
       },true);
       document.addEventListener('change',e=>arm('change:'+(e.target&&e.target.name||e.target&&e.target.id||'control')),true);
     }
-    return {schema:SCHEMA,deviceId,attach,checkpoint,journal,clearJournal,record,diff,merge,getCheckpoint:()=>read(deviceId,'checkpoint',null)};
+    return {schema:SCHEMA,deviceId,attach,checkpoint,journal,clearJournal,discardThrough,record,runAction,diff,merge,getCheckpoint:()=>read(deviceId,'checkpoint',null)};
   }
   global.KittensPlanA={SCHEMA,create,diff,merge};
 })(window);
