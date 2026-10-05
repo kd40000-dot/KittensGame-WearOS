@@ -28,7 +28,7 @@ public class ComplicationConfigActivity extends Activity {
  }
  private Button button(String s){
   Button b=new Button(this);
-  b.setText(s);b.setTextAllCaps(false);
+  b.setText(s);b.setAllCaps(false);
   b.setTextColor(Color.rgb(248,248,242));
   b.setBackgroundColor(Color.rgb(52,55,70));
   LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
