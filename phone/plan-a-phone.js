@@ -3,7 +3,7 @@
 
   var TOKEN_KEY='com.nuclearunicorn.kittengame.planA.githubToken';
   var OWNER='kd40000-dot',REPO='KittensGame-Sync',BRANCH='main';
-  var planA=null,mailbox=null,cloud=null,syncTimer=0,syncBusy=false,syncAgain=false,pollTimer=0;
+  var planA=null,mailbox=null,cloud=null,syncTimer=0,syncBusy=false,syncAgain=false,pollTimer=0,conflictModal=null,activeConflictId=null,conflictDismissedUntil=0;
   var status={configured:false,verified:false,busy:false,message:'Plan A is not configured.',lastResult:null};
 
   function normalizeDraculaSave(save){
@@ -30,6 +30,108 @@
     status.message=message||status.message;
     if(extra){for(var k in extra){if(Object.prototype.hasOwnProperty.call(extra,k)){status[k]=extra[k];}}}
     try{window.dispatchEvent(new CustomEvent('kittens-plan-a-status',{detail:getStatus()}));}catch(e){}
+  }
+
+  function conflictSummary(conflict){
+    var parts=[];
+    (conflict&&conflict.conflicts||[]).forEach(function(c){
+      var who=c.deviceId==='watch'?'Watch':c.deviceId==='phone'?'Phone':'Device';
+      var label=(c.label||'action').replace(/<[^>]+>/g,'');
+      var reason=c.reason==='resource-would-go-negative'?'would overspend a shared resource':
+                 c.reason==='set-conflict'?'changes the same game state differently':(c.reason||'conflicts');
+      parts.push(who+': '+label+' — '+reason+(c.path?' ('+c.path+')':''));
+    });
+    return parts.length?parts.slice(0,8):['Phone and watch both changed from the same common revision and cannot be merged automatically.'];
+  }
+
+  function closeConflictModal(){
+    if(conflictModal&&conflictModal.parentNode)conflictModal.parentNode.removeChild(conflictModal);
+    conflictModal=null;
+  }
+
+  function resolveConflictChoice(choice){
+    if(!cloud)return Promise.reject(new Error('Plan A cloud is not ready.'));
+    var labels={phone:'Phone',watch:'Watch',canonical:'Current canonical'};
+    emit('Resolving merge conflict using '+labels[choice]+'…',{busy:true});
+    return cloud.resolveConflict(choice).then(function(r){
+      if(!r.ok){
+        if(r.retry){scheduleAutoSync(700);throw new Error('Canonical changed while resolving. Please retry.');}
+        throw new Error('Conflict resolution failed: '+r.type);
+      }
+      return cloud.pullCanonical().then(function(pull){
+        closeConflictModal();
+        activeConflictId=null;
+        conflictDismissedUntil=0;
+        emit('Merge conflict resolved using '+labels[choice]+'.',{busy:false,lastResult:r});
+        scheduleAutoSync(500);
+        return {resolution:r,pull:pull};
+      });
+    }).catch(function(e){
+      emit('Conflict resolution failed: '+e.message,{busy:false});
+      throw e;
+    });
+  }
+
+  function showConflictModal(conflict,force){
+    if(!conflict||conflict.state!=='active')return;
+    if(!force&&Date.now()<conflictDismissedUntil&&activeConflictId===conflict.id)return;
+    if(conflictModal&&activeConflictId===conflict.id)return;
+    closeConflictModal();
+    activeConflictId=conflict.id;
+
+    var overlay=document.createElement('div');
+    overlay.id='kittensPlanAConflictOverlay';
+    overlay.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;font-family:sans-serif;';
+    var card=document.createElement('div');
+    card.style.cssText='width:min(520px,100%);max-height:88vh;overflow:auto;background:#282a36;color:#f8f8f2;border:1px solid #44475a;border-radius:12px;padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.65);box-sizing:border-box;';
+    var h=document.createElement('h2');h.textContent='Plan A merge conflict';h.style.cssText='margin:0 0 10px;color:#bd93f9;';
+    var p=document.createElement('p');p.textContent='Phone and watch both changed while apart, and these changes cannot be combined safely. Nothing has been overwritten. Choose which complete branch should become canonical.';
+    card.appendChild(h);card.appendChild(p);
+
+    var list=document.createElement('div');list.style.cssText='background:#21222c;border:1px solid #44475a;border-radius:8px;padding:10px;margin:12px 0;';
+    conflictSummary(conflict).forEach(function(line){var row=document.createElement('div');row.textContent=line;row.style.cssText='margin:5px 0;color:#bfc3d5;font-size:13px;';list.appendChild(row);});
+    card.appendChild(list);
+
+    var note=document.createElement('p');note.textContent='Keep Phone or Keep Watch uses that device’s exact conflict snapshot. Keep Current Canonical discards both conflicting branches and returns to the last accepted shared state.';note.style.cssText='font-size:13px;color:#bfc3d5;';
+    card.appendChild(note);
+
+    function addButton(label,choice,accent){
+      var b=document.createElement('button');b.textContent=label;
+      b.style.cssText='display:block;width:100%;margin:8px 0;padding:12px;border-radius:8px;border:1px solid '+(accent||'#44475a')+';background:#343746;color:#f8f8f2;font-weight:600;';
+      b.onclick=function(){
+        if(!window.confirm('Use '+label+' to resolve this conflict? The other conflicting branch will be discarded from the canonical save.'))return;
+        Array.prototype.forEach.call(card.querySelectorAll('button'),function(x){x.disabled=true;});
+        b.textContent='Resolving…';
+        resolveConflictChoice(choice).catch(function(err){
+          window.alert('Conflict resolution failed: '+err.message);
+          Array.prototype.forEach.call(card.querySelectorAll('button'),function(x){x.disabled=false;});
+          b.textContent=label;
+        });
+      };
+      card.appendChild(b);
+    }
+    addButton('Keep Phone','phone','#bd93f9');
+    addButton('Keep Watch','watch','#8be9fd');
+    addButton('Keep Current Canonical','canonical','#ffb86c');
+
+    var later=document.createElement('button');later.textContent='Decide later';
+    later.style.cssText='display:block;width:100%;margin:14px 0 0;padding:10px;border:0;background:transparent;color:#bfc3d5;text-decoration:underline;';
+    later.onclick=function(){conflictDismissedUntil=Date.now()+60000;closeConflictModal();emit('Plan A conflict is waiting for resolution.',{busy:false,lastResult:conflict});};
+    card.appendChild(later);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    conflictModal=overlay;
+    emit('Plan A merge conflict needs your choice.',{busy:false,lastResult:conflict});
+  }
+
+  function checkConflict(force){
+    ensureRuntime();
+    if(!cloud||!getToken())return Promise.resolve(null);
+    return cloud.getActiveConflict().then(function(conflict){
+      if(conflict)showConflictModal(conflict,!!force);
+      else if(activeConflictId){activeConflictId=null;closeConflictModal();}
+      return conflict;
+    }).catch(function(e){console.warn('Plan A conflict check failed',e);return null;});
   }
   function getStatus(){
     var out={};for(var k in status){if(Object.prototype.hasOwnProperty.call(status,k)){out[k]=status[k];}}
@@ -153,6 +255,9 @@
       .then(function(x){
         if(!x.rec.ok){
           if(x.rec.type==='merge-conflict'){
+            var conflict=x.rec.cloudConflict||null;
+            if(conflict)showConflictModal(conflict,true);
+            else checkConflict(true);
             emit('Plan A found a merge conflict. Your local save was not replaced.',{busy:false,lastResult:x.rec});
             return x.rec;
           }
@@ -232,9 +337,12 @@
         if(!cloud||!getToken())return;
         var st=cloud.loadState();
         if(!st||!st.baseRevision)return;
-        syncNow().catch(function(){});
+        checkConflict(false).then(function(conflict){
+          if(!conflict)syncNow().catch(function(){});
+        });
       }catch(e){}
     },10000);
+    setTimeout(function(){checkConflict(true);},1000);
   }
   function init(){
     if(!window.game||typeof game.save!=='function')return false;
@@ -243,7 +351,8 @@
 
   global.KittensPlanAPhone={
     init:init,getStatus:getStatus,getToken:getToken,setToken:setToken,verify:verify,bootstrap:bootstrap,adoptCanonical:adoptCanonical,
-    syncNow:syncNow,scheduleAutoSync:scheduleAutoSync,provisionWatch:provisionWatch,normalizeWatchUrl:normalizeWatchUrl
+    syncNow:syncNow,scheduleAutoSync:scheduleAutoSync,provisionWatch:provisionWatch,normalizeWatchUrl:normalizeWatchUrl,
+    checkConflict:checkConflict,resolveConflict:resolveConflictChoice
   };
   (function autoInit(){try{if(init())return;}catch(e){}setTimeout(autoInit,250);})();
 })(window);
