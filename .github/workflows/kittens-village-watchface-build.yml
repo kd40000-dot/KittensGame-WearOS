@@ -1,0 +1,53 @@
+name: Build Kittens Village Watch Face
+
+on:
+  push:
+    branches:
+      - kittens-village-watchface
+    paths:
+      - 'watchface-kittens-village/**'
+      - '.github/workflows/kittens-village-watchface-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdline-tools.zip
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/android-cmdline
+          mv /tmp/android-cmdline/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;35.0.0"
+
+      - name: Build resource-only WFF v2 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$HOME/android-sdk"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          PLATFORM="$ANDROID_HOME/platforms/android-34/android.jar"
+          SRC="watchface-kittens-village"
+          mkdir -p build/wff
+          "$BT/aapt2" compile --dir "$SRC/res" -o build/wff/resources.zip
+          "$BT/aapt2" link             -o build/wff/Kittens-Village-WFF2-unsigned.apk             -I "$PLATFORM"             --manifest "$SRC/AndroidManifest.xml"             --min-sdk-version 34             --target-sdk-version 34             --version-code 1             --version-name 1.0.0             --rename-manifest-package com.balthazar.kittensvillage             -R build/wff/resources.zip
+          "$BT/zipalign" -f -P 16 4             build/wff/Kittens-Village-WFF2-unsigned.apk             build/wff/Kittens-Village-WFF2-aligned-unsigned.apk
+          "$BT/aapt2" dump badging build/wff/Kittens-Village-WFF2-aligned-unsigned.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kittens-Village-WFF2
+          path: build/wff/Kittens-Village-WFF2-aligned-unsigned.apk
+          if-no-files-found: error
+          retention-days: 7
