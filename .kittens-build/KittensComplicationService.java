@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.os.RemoteException;
 import androidx.wear.watchface.complications.data.*;
 import androidx.wear.watchface.complications.datasource.*;
+import androidx.wear.protolayout.expression.DynamicBuilders;
+import java.time.Instant;
 import java.util.Locale;
 
 public class KittensComplicationService extends ComplicationDataSourceService {
@@ -36,23 +38,36 @@ public class KittensComplicationService extends ComplicationDataSourceService {
   String text=shortNumber(value);
   String desc=r.title+" "+text+(r.max>0?" of "+shortNumber(r.max):"");
   PendingIntent tap=tapIntent(id);
+  ComplicationText dynamicText=dynamicValueText(r,text);
 
   if(ComplicationType.RANGED_VALUE.equals(type)){
    float fraction=r.max>0?(float)Math.max(0.0,Math.min(1.0,value/r.max)):0f;
-   deliver(listener,new RangedValueComplicationData.Builder(
-    fraction,0f,1f,new PlainComplicationText.Builder(desc).build())
-    .setText(new PlainComplicationText.Builder(text).build())
-    .setTitle(new PlainComplicationText.Builder(shortTitle(r.title)).build())
-    .setTapAction(tap).build());
+   PlainComplicationText cd=new PlainComplicationText.Builder(desc).build();
+   PlainComplicationText title=new PlainComplicationText.Builder(shortTitle(r.title)).build();
+   if(r.max>0&&Double.isFinite(r.max)){
+    try{
+     deliver(listener,new RangedValueComplicationData.Builder(
+      dynamicFraction(r),fraction,0f,1f,cd)
+      .setText(dynamicText).setTitle(title).setTapAction(tap).build());
+    }catch(Throwable ignored){
+     deliver(listener,new RangedValueComplicationData.Builder(
+      fraction,0f,1f,cd)
+      .setText(dynamicText).setTitle(title).setTapAction(tap).build());
+    }
+   }else{
+    deliver(listener,new RangedValueComplicationData.Builder(
+     0f,0f,1f,cd)
+     .setText(dynamicText).setTitle(title).setTapAction(tap).build());
+   }
   }else if(ComplicationType.LONG_TEXT.equals(type)){
-   String longText=r.title+" "+text+(r.max>0?" / "+shortNumber(r.max):"");
+   String fallback=r.title+" "+text+(r.max>0?" / "+shortNumber(r.max):"");
    deliver(listener,new LongTextComplicationData.Builder(
-    new PlainComplicationText.Builder(longText).build(),
+    dynamicLongText(r,fallback),
     new PlainComplicationText.Builder(desc).build())
     .setTapAction(tap).build());
   }else{
    deliver(listener,new ShortTextComplicationData.Builder(
-    new PlainComplicationText.Builder(text).build(),
+    dynamicText,
     new PlainComplicationText.Builder(desc).build())
     .setTitle(new PlainComplicationText.Builder(shortTitle(r.title)).build())
     .setTapAction(tap).build());
@@ -61,6 +76,52 @@ public class KittensComplicationService extends ComplicationDataSourceService {
 
  @Override public ComplicationData getPreviewData(ComplicationType type){
   return buildStatic(type,"1.2K","Catnip","Catnip 1.2K",0);
+ }
+
+ private ComplicationText dynamicValueText(ComplicationStore.ResourceInfo r,String fallback){
+  try{return new DynamicComplicationText(abbreviated(dynamicValue(r)),fallback);}
+  catch(Throwable e){return new PlainComplicationText.Builder(fallback).build();}
+ }
+ private ComplicationText dynamicLongText(ComplicationStore.ResourceInfo r,String fallback){
+  try{
+   DynamicBuilders.DynamicString s=DynamicBuilders.DynamicString.constant(shortTitle(r.title)+" ").concat(abbreviated(dynamicValue(r)));
+   if(r.max>0)s=s.concat(DynamicBuilders.DynamicString.constant(" / "+shortNumber(r.max)));
+   return new DynamicComplicationText(s,fallback);
+  }catch(Throwable e){return new PlainComplicationText.Builder(fallback).build();}
+ }
+ private DynamicBuilders.DynamicFloat dynamicFraction(ComplicationStore.ResourceInfo r){
+  double start=r.max>0?r.value/r.max:0.0;
+  double perSecond=r.max>0?r.rate/r.max:0.0;
+  DynamicBuilders.DynamicInt32 seconds=DynamicBuilders.DynamicInstant
+   .withSecondsPrecision(Instant.ofEpochMilli(r.timestamp))
+   .durationUntil(DynamicBuilders.DynamicInstant.platformTimeWithSecondsPrecision())
+   .toIntSeconds();
+  DynamicBuilders.DynamicFloat raw=DynamicBuilders.DynamicFloat.constant((float)start).plus(seconds.times((float)perSecond));
+  DynamicBuilders.DynamicFloat nonnegative=DynamicBuilders.DynamicFloat.onCondition(raw.lt(0f)).use(0f).elseUse(raw);
+  return DynamicBuilders.DynamicFloat.onCondition(nonnegative.gt(1f)).use(1f).elseUse(nonnegative);
+ }
+ private DynamicBuilders.DynamicFloat dynamicValue(ComplicationStore.ResourceInfo r){
+  DynamicBuilders.DynamicInt32 seconds=DynamicBuilders.DynamicInstant
+   .withSecondsPrecision(Instant.ofEpochMilli(r.timestamp))
+   .durationUntil(DynamicBuilders.DynamicInstant.platformTimeWithSecondsPrecision())
+   .toIntSeconds();
+  DynamicBuilders.DynamicFloat raw=DynamicBuilders.DynamicFloat.constant((float)r.value).plus(seconds.times((float)r.rate));
+  DynamicBuilders.DynamicFloat nonnegative=DynamicBuilders.DynamicFloat.onCondition(raw.lt(0f)).use(0f).elseUse(raw);
+  if(r.max>0)return DynamicBuilders.DynamicFloat.onCondition(nonnegative.gt((float)r.max)).use((float)r.max).elseUse(nonnegative);
+  return nonnegative;
+ }
+ private DynamicBuilders.DynamicString abbreviated(DynamicBuilders.DynamicFloat v){
+  DynamicBuilders.DynamicFloat.FloatFormatter one=new DynamicBuilders.DynamicFloat.FloatFormatter.Builder()
+   .setMaxFractionDigits(1).setMinFractionDigits(0).setGroupingUsed(false).build();
+  DynamicBuilders.DynamicString base=v.format(one);
+  DynamicBuilders.DynamicString k=v.div(1_000f).format(one).concat(DynamicBuilders.DynamicString.constant("K"));
+  DynamicBuilders.DynamicString m=v.div(1_000_000f).format(one).concat(DynamicBuilders.DynamicString.constant("M"));
+  DynamicBuilders.DynamicString b=v.div(1_000_000_000f).format(one).concat(DynamicBuilders.DynamicString.constant("B"));
+  DynamicBuilders.DynamicString t=v.div(1_000_000_000_000f).format(one).concat(DynamicBuilders.DynamicString.constant("T"));
+  return DynamicBuilders.DynamicString.onCondition(v.gte(1_000_000_000_000f)).use(t).elseUse(
+   DynamicBuilders.DynamicString.onCondition(v.gte(1_000_000_000f)).use(b).elseUse(
+    DynamicBuilders.DynamicString.onCondition(v.gte(1_000_000f)).use(m).elseUse(
+     DynamicBuilders.DynamicString.onCondition(v.gte(1_000f)).use(k).elseUse(base))));
  }
 
  private PendingIntent tapIntent(int id){
