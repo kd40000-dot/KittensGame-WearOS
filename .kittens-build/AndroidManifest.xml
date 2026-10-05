@@ -11,6 +11,46 @@
    <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
    <meta-data android:name="android.support.wearable.complications.PROVIDER_CONFIG_ACTION" android:value="com.balthazar.kittenswear.CONFIGURE_RESOURCE"/>
   </service>
+  <service android:name=".HudCatnipService" android:exported="true" android:label="Kittens HUD · Catnip" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="RANGED_VALUE,SHORT_TEXT"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
+  <service android:name=".HudWoodService" android:exported="true" android:label="Kittens HUD · Wood" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="RANGED_VALUE,SHORT_TEXT"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
+  <service android:name=".HudScienceService" android:exported="true" android:label="Kittens HUD · Science" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="RANGED_VALUE,SHORT_TEXT"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
+  <service android:name=".HudFaithService" android:exported="true" android:label="Kittens HUD · Faith" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="RANGED_VALUE,SHORT_TEXT"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
+  <service android:name=".HudMetalsPanelService" android:exported="true" android:label="Kittens HUD · Metals" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
+  <service android:name=".HudIndustryPanelService" android:exported="true" android:label="Kittens HUD · Industry" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
+  <service android:name=".HudVillagePanelService" android:exported="true" android:label="Kittens HUD · Village" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
+  <service android:name=".HudMythicPanelService" android:exported="true" android:label="Kittens HUD · Mythic" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
   <activity android:name=".ComplicationConfigActivity" android:exported="true" android:theme="@style/AppTheme"><intent-filter><action android:name="com.balthazar.kittenswear.CONFIGURE_RESOURCE"/><category android:name="android.support.wearable.complications.category.PROVIDER_CONFIG"/><category android:name="android.intent.category.DEFAULT"/></intent-filter></activity>
   <receiver android:name=".ResourceFullReceiver" android:exported="false"/>
   <activity android:name=".MainActivity" android:exported="true" android:taskAffinity="" android:configChanges="orientation|screenSize|keyboardHidden|uiMode" android:windowSoftInputMode="adjustResize"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
