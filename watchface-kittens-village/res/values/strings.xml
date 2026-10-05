@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="watch_face_name">Kittens Village</string>
+  <string name="palette_label">Village palette</string>
+  <string name="palette_kittens">Kittens Dark</string>
+  <string name="palette_dracula">Dracula</string>
+  <string name="slot_catnip">Catnip resource</string>
+  <string name="slot_wood">Wood resource</string>
+  <string name="slot_minerals">Minerals resource</string>
+  <string name="slot_coal">Coal resource</string>
+  <string name="slot_iron">Iron resource</string>
+  <string name="slot_science">Science resource</string>
+  <string name="slot_culture">Culture resource</string>
+  <string name="slot_faith">Faith resource</string>
+</resources>
