@@ -174,7 +174,7 @@
     emit('Getting watch encryption key…',{busy:true});
     return fetch(base+'github-key',{cache:'no-store'}).then(function(r){return r.json();}).then(function(keyInfo){
       if(keyInfo.state!=='success'||!keyInfo.publicKeySpkiBase64)throw new Error(keyInfo.message||'Watch did not provide a pairing key.');
-      return crypto.subtle.importKey('spki',b64ToBytes(keyInfo.publicKeySpkiBase64),{name:'RSA-OAEP',hash:'SHA-256'},false,['encrypt']);
+      return crypto.subtle.importKey('spki',b64ToBytes(keyInfo.publicKeySpkiBase64),{name:'RSA-OAEP',hash:'SHA-1'},false,['encrypt']);
     }).then(function(pub){
       var plain=new TextEncoder().encode(JSON.stringify({owner:OWNER,repo:REPO,branch:BRANCH,token:token}));
       return crypto.subtle.encrypt({name:'RSA-OAEP'},pub,plain);
