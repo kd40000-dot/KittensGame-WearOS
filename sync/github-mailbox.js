@@ -72,7 +72,11 @@
     async function updateCanonical(head,expectedSha){
       return write('canonical/head.json',head,'Advance canonical Kittens revision',expectedSha);
     }
-    return {owner,repo,branch,verifyPrivate,read,write,appendBatch,appendSnapshot,readSnapshot,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical};
+    async function readConflict(){return read('conflicts/current.json');}
+    async function updateConflict(conflict,expectedSha){
+      return write('conflicts/current.json',conflict,'Update Kittens merge conflict',expectedSha);
+    }
+    return {owner,repo,branch,verifyPrivate,read,write,appendBatch,appendSnapshot,readSnapshot,readDeviceHead,updateDeviceHead,readBatch,readCanonical,readRevision,writeRevision,updateCanonical,readConflict,updateConflict};
   }
   global.KittensGitHubMailbox={create};
 })(window);
