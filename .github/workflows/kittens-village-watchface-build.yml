@@ -56,7 +56,7 @@ jobs:
           SRC="watchface-kittens-village"
           mkdir -p build/wff
           "$BT/aapt2" compile --dir "$SRC/res" -o build/wff/resources.zip
-          "$BT/aapt2" link             -o build/wff/Kittens-Village-WFF2-unsigned.apk             -I "$PLATFORM"             --manifest "$SRC/AndroidManifest.xml"             --min-sdk-version 34             --target-sdk-version 34             --version-code 1             --version-name 1.0.0             --rename-manifest-package com.balthazar.kittensvillage             -R build/wff/resources.zip
+          "$BT/aapt2" link             -o build/wff/Kittens-Village-WFF2-unsigned.apk             -I "$PLATFORM"             --manifest "$SRC/AndroidManifest.xml"             --min-sdk-version 34             --target-sdk-version 34             --version-code 1             --version-name 1.0.0             --rename-manifest-package com.balthazar.kittensvillage             build/wff/resources.zip
           "$BT/zipalign" -f -P 16 4             build/wff/Kittens-Village-WFF2-unsigned.apk             build/wff/Kittens-Village-WFF2-aligned-unsigned.apk
           "$BT/aapt2" dump badging build/wff/Kittens-Village-WFF2-aligned-unsigned.apk
 
