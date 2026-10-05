@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="watch_face_name">Kittens Village HUD</string>
+  <string name="watch_face_name">Kittens Iron Will HUD</string>
   <string name="palette_label">HUD palette</string>
-  <string name="palette_kittens">Kittens Dark</string>
+  <string name="palette_kittens">Kittens Neon</string>
   <string name="palette_dracula">Dracula</string>
-  <string name="slot_metals">Metals panel</string>
   <string name="slot_catnip">Catnip</string>
-  <string name="slot_industry">Industry panel</string>
-  <string name="slot_science">Science</string>
-  <string name="slot_village">Village panel</string>
-  <string name="slot_faith">Faith</string>
-  <string name="slot_mythic">Mythic panel</string>
   <string name="slot_wood">Wood</string>
+  <string name="slot_science">Science</string>
+  <string name="slot_faith">Faith</string>
+  <string name="slot_raw">RAW resources</string>
+  <string name="slot_rare">RARE resources</string>
+  <string name="slot_ironwill">Iron Will resources</string>
 </resources>
