@@ -3,7 +3,7 @@ name: Build Kittens Village Watch Face
 on:
   push:
     branches:
-      - kittens-village-watchface
+      - kittens-village-watchface-editorfix
     paths:
       - 'watchface-kittens-village/**'
       - '.github/workflows/kittens-village-watchface-build.yml'
