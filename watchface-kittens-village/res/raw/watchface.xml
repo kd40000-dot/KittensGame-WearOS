@@ -44,7 +44,7 @@
     </Group>
 
     <DigitalClock x="110" y="181" width="230" height="80">
-      <TimeText x="0" y="0" width="230" height="80" format="hh:mm" hourFormat="SYNC_TO_DEVICE" align="CENTER" verticalAlign="CENTER">
+      <TimeText x="0" y="0" width="230" height="80" format="hh:mm" hourFormat="SYNC_TO_DEVICE" align="CENTER">
         <Font family="SYNC_TO_DEVICE" size="64" weight="BOLD" color="[CONFIGURATION.palette.1]"/>
       </TimeText>
     </DigitalClock>
