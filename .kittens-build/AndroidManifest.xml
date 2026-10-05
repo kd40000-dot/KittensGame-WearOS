@@ -51,6 +51,21 @@
    <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
    <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
   </service>
+  <service android:name=".KittensComplicationService$HudRawPanelService" android:exported="true" android:label="Kittens HUD · RAW" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
+  <service android:name=".KittensComplicationService$HudRarePanelService" android:exported="true" android:label="Kittens HUD · RARE" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
+  <service android:name=".KittensComplicationService$HudBottomPanelService" android:exported="true" android:label="Kittens HUD · Iron Will" android:icon="@drawable/ic_complication" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+   <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+   <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+   <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+  </service>
   <activity android:name=".ComplicationConfigActivity" android:exported="true" android:theme="@style/AppTheme"><intent-filter><action android:name="com.balthazar.kittenswear.CONFIGURE_RESOURCE"/><category android:name="android.support.wearable.complications.category.PROVIDER_CONFIG"/><category android:name="android.intent.category.DEFAULT"/></intent-filter></activity>
   <receiver android:name=".ResourceFullReceiver" android:exported="false"/>
   <activity android:name=".MainActivity" android:exported="true" android:taskAffinity="" android:configChanges="orientation|screenSize|keyboardHidden|uiMode" android:windowSoftInputMode="adjustResize"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
