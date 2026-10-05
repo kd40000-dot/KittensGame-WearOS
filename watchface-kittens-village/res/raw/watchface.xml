@@ -2,579 +2,881 @@
 <WatchFace width="450" height="450">
   <Metadata key="CLOCK_TYPE" value="DIGITAL"/>
   <Metadata key="PREVIEW_TIME" value="10:08:00"/>
-
   <UserConfigurations>
     <ColorConfiguration id="palette" defaultValue="0" displayName="palette_label" screenReaderText="palette_label">
       <ColorOption id="0" displayName="palette_kittens" colors="#171914 #E4D9BC #66614E #A9B78D #292A24"/>
       <ColorOption id="1" displayName="palette_dracula" colors="#282A36 #F8F8F2 #44475A #BD93F9 #21222C"/>
     </ColorConfiguration>
   </UserConfigurations>
+  <Scene backgroundColor="[CONFIGURATION.palette.0]">
+    <PartDraw x="0" y="0" width="450" height="450">
+      <Ellipse x="6" y="6" width="438" height="438"><Stroke thickness="3" color="[CONFIGURATION.palette.2]"/></Ellipse>
+      <Ellipse x="13" y="13" width="424" height="424"><Stroke thickness="1" color="[CONFIGURATION.palette.3]"/></Ellipse>
+    </PartDraw>
 
-  <Scene backgroundColor="#000000">
-    <Group x="0" y="0" width="450" height="450" name="village_dial">
-      <PartDraw x="0" y="0" width="450" height="450">
-        <Ellipse x="0" y="0" width="450" height="450">
-          <Fill color="[CONFIGURATION.palette.0]"/>
-        </Ellipse>
-        <Ellipse x="10" y="10" width="430" height="430">
-          <Stroke thickness="3" color="[CONFIGURATION.palette.2]"/>
-        </Ellipse>
-        <Ellipse x="18" y="18" width="414" height="414">
-          <Stroke thickness="1" color="[CONFIGURATION.palette.3]"/>
-        </Ellipse>
-      </PartDraw>
-      <PartDraw x="110" y="158" width="230" height="134">
-        <RoundRectangle x="0" y="0" width="230" height="134" cornerRadiusX="18" cornerRadiusY="18">
+    <Group x="110" y="174" width="230" height="108" name="clock_panel">
+      <PartDraw x="0" y="0" width="230" height="108">
+        <RoundRectangle x="0" y="0" width="230" height="108" cornerRadiusX="18" cornerRadiusY="18">
           <Fill color="[CONFIGURATION.palette.4]"/>
           <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
         </RoundRectangle>
       </PartDraw>
-      <PartText x="110" y="163" width="230" height="25">
+      <PartText x="0" y="7" width="230" height="20">
         <Variant mode="AMBIENT" target="alpha" value="0"/>
-        <Text align="CENTER">
-          <Font family="SYNC_TO_DEVICE" size="15" weight="BOLD" color="[CONFIGURATION.palette.3]"><![CDATA[KITTENS VILLAGE]]></Font>
-        </Text>
+        <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="13" weight="BOLD" color="[CONFIGURATION.palette.3]"><![CDATA[KITTENS HUD · 20 RESOURCES]]></Font></Text>
       </PartText>
-      <PartText x="112" y="263" width="226" height="20">
+      <DigitalClock x="0" y="20" width="230" height="74">
+        <TimeText x="0" y="0" width="230" height="74" format="hh:mm" hourFormat="SYNC_TO_DEVICE" align="CENTER">
+          <Font family="SYNC_TO_DEVICE" size="62" weight="BOLD" color="[CONFIGURATION.palette.1]"/>
+        </TimeText>
+      </DigitalClock>
+      <PartText x="0" y="88" width="230" height="15">
         <Variant mode="AMBIENT" target="alpha" value="0"/>
-        <Text align="CENTER">
-          <Font family="SYNC_TO_DEVICE" size="12" color="[CONFIGURATION.palette.2]"><![CDATA[observe · accumulate · transcend]]></Font>
-        </Text>
+        <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="10" color="[CONFIGURATION.palette.2]"><![CDATA[accumulate · craft · transcend]]></Font></Text>
       </PartText>
     </Group>
 
-    <DigitalClock x="110" y="181" width="230" height="80">
-      <TimeText x="0" y="0" width="230" height="80" format="hh:mm" hourFormat="SYNC_TO_DEVICE" align="CENTER">
-        <Font family="SYNC_TO_DEVICE" size="64" weight="BOLD" color="[CONFIGURATION.palette.1]"/>
-      </TimeText>
-    </DigitalClock>
-
-
-    <ComplicationSlot x="70" y="42" width="130" height="64"
-        slotId="0" name="catnip" displayName="slot_catnip"
-        supportedTypes="SHORT_TEXT RANGED_VALUE EMPTY">
-      <DefaultProviderPolicy
-          primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService"
-          primaryProviderType="SHORT_TEXT"
-          defaultSystemProvider="WATCH_BATTERY"
-          defaultSystemProviderType="SHORT_TEXT"/>
-      <BoundingBox x="0" y="0" width="130" height="64" outlinePadding="2"/>
-      <Complication type="SHORT_TEXT">
-        
-        <PartDraw x="0" y="0" width="130" height="64">
-          <RoundRectangle x="1" y="1" width="128" height="62" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="8" width="116" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="15" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="28" width="116" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-      </Complication>
-      <Complication type="RANGED_VALUE">
-        
-        <PartDraw x="0" y="0" width="130" height="64">
-          <RoundRectangle x="1" y="1" width="128" height="62" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="8" width="116" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="15" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="28" width="116" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartDraw x="10" y="56" width="110" height="4">
-          <RoundRectangle x="0" y="0" width="110" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-          <RoundRectangle x="0" y="0" width="110" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.3]"/>
-            <Transform target="width" value="clamp(([COMPLICATION.RANGED_VALUE_VALUE]-[COMPLICATION.RANGED_VALUE_MIN])/([COMPLICATION.RANGED_VALUE_MAX]-[COMPLICATION.RANGED_VALUE_MIN]),0,1)*110"/>
-          </RoundRectangle>
-        </PartDraw>
+    <ComplicationSlot x="145" y="15" width="160" height="105" slotId="0" name="metals" displayName="slot_metals" supportedTypes="SMALL_IMAGE EMPTY">
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudMetalsPanelService" primaryProviderType="SMALL_IMAGE"/>
+      <BoundingBox x="0" y="0" width="160" height="105" outlinePadding="2"/>
+      <Complication type="SMALL_IMAGE">
+        <PartImage x="0" y="0" width="160" height="105">
+          <Image resource="[COMPLICATION.SMALL_IMAGE]"/>
+        </PartImage>
       </Complication>
     </ComplicationSlot>
 
-    <ComplicationSlot x="250" y="42" width="130" height="64"
-        slotId="1" name="wood" displayName="slot_wood"
-        supportedTypes="SHORT_TEXT RANGED_VALUE EMPTY">
-      <DefaultProviderPolicy
-          primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService"
-          primaryProviderType="SHORT_TEXT"
-          defaultSystemProvider="WATCH_BATTERY"
-          defaultSystemProviderType="SHORT_TEXT"/>
-      <BoundingBox x="0" y="0" width="130" height="64" outlinePadding="2"/>
-      <Complication type="SHORT_TEXT">
-        
-        <PartDraw x="0" y="0" width="130" height="64">
-          <RoundRectangle x="1" y="1" width="128" height="62" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="8" width="116" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="15" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="28" width="116" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-      </Complication>
+    <ComplicationSlot x="300" y="90" width="125" height="64" slotId="1" name="catnip" displayName="slot_catnip" supportedTypes="RANGED_VALUE EMPTY">
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudCatnipService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE"/>
+      <BoundingBox x="0" y="0" width="125" height="64" outlinePadding="2"/>
       <Complication type="RANGED_VALUE">
-        
-        <PartDraw x="0" y="0" width="130" height="64">
-          <RoundRectangle x="1" y="1" width="128" height="62" cornerRadiusX="12" cornerRadiusY="12">
+        <PartDraw x="0" y="0" width="125" height="64">
+          <RoundRectangle x="1" y="1" width="123" height="62" cornerRadiusX="12" cornerRadiusY="12">
             <Fill color="[CONFIGURATION.palette.4]"/>
             <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
           </RoundRectangle>
         </PartDraw>
-        <PartText x="7" y="8" width="116" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="15" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="28" width="116" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartDraw x="10" y="56" width="110" height="4">
-          <RoundRectangle x="0" y="0" width="110" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-          <RoundRectangle x="0" y="0" width="110" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.3]"/>
-            <Transform target="width" value="clamp(([COMPLICATION.RANGED_VALUE_VALUE]-[COMPLICATION.RANGED_VALUE_MIN])/([COMPLICATION.RANGED_VALUE_MAX]-[COMPLICATION.RANGED_VALUE_MIN]),0,1)*110"/>
-          </RoundRectangle>
-        </PartDraw>
+        <Condition>
+          <Expressions><Expression name="level0"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] < 0.111]]></Expression><Expression name="level1"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.111 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.222]]></Expression><Expression name="level2"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.222 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.333]]></Expression><Expression name="level3"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.333 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.444]]></Expression><Expression name="level4"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.444 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.555]]></Expression><Expression name="level5"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.555 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.666]]></Expression><Expression name="level6"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.666 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.777]]></Expression><Expression name="level7"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.777 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.888]]></Expression><Expression name="level8"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.888]]></Expression></Expressions>
+
+        <Compare expression="level0">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF5555"><![CDATA[☘]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF5555">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF5555"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level1">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF6E50"><![CDATA[☘]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF6E50">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF6E50"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level2">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF884D"><![CDATA[☘]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF884D">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF884D"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level3">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFA94D"><![CDATA[☘]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FFA94D">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FFA94D"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level4">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#F1FA8C"><![CDATA[☘]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#F1FA8C">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#F1FA8C"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level5">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#C8F280"><![CDATA[☘]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#C8F280">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#C8F280"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level6">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#9EEE71"><![CDATA[☘]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#9EEE71">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#9EEE71"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level7">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#70E569"><![CDATA[☘]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#70E569">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#70E569"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level8">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#50FA7B"><![CDATA[☘]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#50FA7B">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#50FA7B"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+          <Default>
+            <PartText x="6" y="11" width="113" height="44">
+              <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" color="[CONFIGURATION.palette.1]"><Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text>
+            </PartText>
+          </Default>
+        </Condition>
       </Complication>
     </ComplicationSlot>
 
-    <ComplicationSlot x="335" y="126" width="95" height="72"
-        slotId="2" name="minerals" displayName="slot_minerals"
-        supportedTypes="SHORT_TEXT RANGED_VALUE EMPTY">
-      <DefaultProviderPolicy
-          primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService"
-          primaryProviderType="SHORT_TEXT"
-          defaultSystemProvider="WATCH_BATTERY"
-          defaultSystemProviderType="SHORT_TEXT"/>
-      <BoundingBox x="0" y="0" width="95" height="72" outlinePadding="2"/>
-      <Complication type="SHORT_TEXT">
-        
-        <PartDraw x="0" y="0" width="95" height="72">
-          <RoundRectangle x="1" y="1" width="93" height="70" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="10" width="81" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="13" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="33" width="81" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-      </Complication>
-      <Complication type="RANGED_VALUE">
-        
-        <PartDraw x="0" y="0" width="95" height="72">
-          <RoundRectangle x="1" y="1" width="93" height="70" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="10" width="81" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="13" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="33" width="81" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartDraw x="10" y="64" width="75" height="4">
-          <RoundRectangle x="0" y="0" width="75" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-          <RoundRectangle x="0" y="0" width="75" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.3]"/>
-            <Transform target="width" value="clamp(([COMPLICATION.RANGED_VALUE_VALUE]-[COMPLICATION.RANGED_VALUE_MIN])/([COMPLICATION.RANGED_VALUE_MAX]-[COMPLICATION.RANGED_VALUE_MIN]),0,1)*75"/>
-          </RoundRectangle>
-        </PartDraw>
+    <ComplicationSlot x="340" y="170" width="100" height="110" slotId="2" name="industry" displayName="slot_industry" supportedTypes="SMALL_IMAGE EMPTY">
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudIndustryPanelService" primaryProviderType="SMALL_IMAGE"/>
+      <BoundingBox x="0" y="0" width="100" height="110" outlinePadding="2"/>
+      <Complication type="SMALL_IMAGE">
+        <PartImage x="0" y="0" width="100" height="110">
+          <Image resource="[COMPLICATION.SMALL_IMAGE]"/>
+        </PartImage>
       </Complication>
     </ComplicationSlot>
 
-    <ComplicationSlot x="335" y="252" width="95" height="72"
-        slotId="3" name="coal" displayName="slot_coal"
-        supportedTypes="SHORT_TEXT RANGED_VALUE EMPTY">
-      <DefaultProviderPolicy
-          primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService"
-          primaryProviderType="SHORT_TEXT"
-          defaultSystemProvider="WATCH_BATTERY"
-          defaultSystemProviderType="SHORT_TEXT"/>
-      <BoundingBox x="0" y="0" width="95" height="72" outlinePadding="2"/>
-      <Complication type="SHORT_TEXT">
-        
-        <PartDraw x="0" y="0" width="95" height="72">
-          <RoundRectangle x="1" y="1" width="93" height="70" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="10" width="81" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="13" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="33" width="81" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-      </Complication>
+    <ComplicationSlot x="300" y="290" width="125" height="64" slotId="3" name="science" displayName="slot_science" supportedTypes="RANGED_VALUE EMPTY">
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudScienceService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE"/>
+      <BoundingBox x="0" y="0" width="125" height="64" outlinePadding="2"/>
       <Complication type="RANGED_VALUE">
-        
-        <PartDraw x="0" y="0" width="95" height="72">
-          <RoundRectangle x="1" y="1" width="93" height="70" cornerRadiusX="12" cornerRadiusY="12">
+        <PartDraw x="0" y="0" width="125" height="64">
+          <RoundRectangle x="1" y="1" width="123" height="62" cornerRadiusX="12" cornerRadiusY="12">
             <Fill color="[CONFIGURATION.palette.4]"/>
             <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
           </RoundRectangle>
         </PartDraw>
-        <PartText x="7" y="10" width="81" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="13" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="33" width="81" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartDraw x="10" y="64" width="75" height="4">
-          <RoundRectangle x="0" y="0" width="75" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-          <RoundRectangle x="0" y="0" width="75" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.3]"/>
-            <Transform target="width" value="clamp(([COMPLICATION.RANGED_VALUE_VALUE]-[COMPLICATION.RANGED_VALUE_MIN])/([COMPLICATION.RANGED_VALUE_MAX]-[COMPLICATION.RANGED_VALUE_MIN]),0,1)*75"/>
-          </RoundRectangle>
-        </PartDraw>
+        <Condition>
+          <Expressions><Expression name="level0"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] < 0.111]]></Expression><Expression name="level1"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.111 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.222]]></Expression><Expression name="level2"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.222 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.333]]></Expression><Expression name="level3"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.333 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.444]]></Expression><Expression name="level4"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.444 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.555]]></Expression><Expression name="level5"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.555 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.666]]></Expression><Expression name="level6"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.666 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.777]]></Expression><Expression name="level7"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.777 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.888]]></Expression><Expression name="level8"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.888]]></Expression></Expressions>
+
+        <Compare expression="level0">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF5555"><![CDATA[⚗]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF5555">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF5555"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level1">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF6E50"><![CDATA[⚗]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF6E50">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF6E50"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level2">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF884D"><![CDATA[⚗]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF884D">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF884D"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level3">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFA94D"><![CDATA[⚗]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FFA94D">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FFA94D"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level4">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#F1FA8C"><![CDATA[⚗]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#F1FA8C">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#F1FA8C"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level5">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#C8F280"><![CDATA[⚗]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#C8F280">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#C8F280"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level6">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#9EEE71"><![CDATA[⚗]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#9EEE71">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#9EEE71"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level7">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#70E569"><![CDATA[⚗]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#70E569">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#70E569"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level8">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#50FA7B"><![CDATA[⚗]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#50FA7B">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#50FA7B"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+          <Default>
+            <PartText x="6" y="11" width="113" height="44">
+              <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" color="[CONFIGURATION.palette.1]"><Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text>
+            </PartText>
+          </Default>
+        </Condition>
       </Complication>
     </ComplicationSlot>
 
-    <ComplicationSlot x="250" y="344" width="130" height="64"
-        slotId="4" name="iron" displayName="slot_iron"
-        supportedTypes="SHORT_TEXT RANGED_VALUE EMPTY">
-      <DefaultProviderPolicy
-          primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService"
-          primaryProviderType="SHORT_TEXT"
-          defaultSystemProvider="WATCH_BATTERY"
-          defaultSystemProviderType="SHORT_TEXT"/>
-      <BoundingBox x="0" y="0" width="130" height="64" outlinePadding="2"/>
-      <Complication type="SHORT_TEXT">
-        
-        <PartDraw x="0" y="0" width="130" height="64">
-          <RoundRectangle x="1" y="1" width="128" height="62" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="8" width="116" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="15" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="28" width="116" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-      </Complication>
-      <Complication type="RANGED_VALUE">
-        
-        <PartDraw x="0" y="0" width="130" height="64">
-          <RoundRectangle x="1" y="1" width="128" height="62" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="8" width="116" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="15" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="28" width="116" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartDraw x="10" y="56" width="110" height="4">
-          <RoundRectangle x="0" y="0" width="110" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-          <RoundRectangle x="0" y="0" width="110" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.3]"/>
-            <Transform target="width" value="clamp(([COMPLICATION.RANGED_VALUE_VALUE]-[COMPLICATION.RANGED_VALUE_MIN])/([COMPLICATION.RANGED_VALUE_MAX]-[COMPLICATION.RANGED_VALUE_MIN]),0,1)*110"/>
-          </RoundRectangle>
-        </PartDraw>
+    <ComplicationSlot x="145" y="340" width="160" height="95" slotId="4" name="village" displayName="slot_village" supportedTypes="SMALL_IMAGE EMPTY">
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudVillagePanelService" primaryProviderType="SMALL_IMAGE"/>
+      <BoundingBox x="0" y="0" width="160" height="95" outlinePadding="2"/>
+      <Complication type="SMALL_IMAGE">
+        <PartImage x="0" y="0" width="160" height="95">
+          <Image resource="[COMPLICATION.SMALL_IMAGE]"/>
+        </PartImage>
       </Complication>
     </ComplicationSlot>
 
-    <ComplicationSlot x="70" y="344" width="130" height="64"
-        slotId="5" name="science" displayName="slot_science"
-        supportedTypes="SHORT_TEXT RANGED_VALUE EMPTY">
-      <DefaultProviderPolicy
-          primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService"
-          primaryProviderType="SHORT_TEXT"
-          defaultSystemProvider="WATCH_BATTERY"
-          defaultSystemProviderType="SHORT_TEXT"/>
-      <BoundingBox x="0" y="0" width="130" height="64" outlinePadding="2"/>
-      <Complication type="SHORT_TEXT">
-        
-        <PartDraw x="0" y="0" width="130" height="64">
-          <RoundRectangle x="1" y="1" width="128" height="62" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="8" width="116" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="15" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="28" width="116" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-      </Complication>
+    <ComplicationSlot x="25" y="290" width="125" height="64" slotId="5" name="faith" displayName="slot_faith" supportedTypes="RANGED_VALUE EMPTY">
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudFaithService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE"/>
+      <BoundingBox x="0" y="0" width="125" height="64" outlinePadding="2"/>
       <Complication type="RANGED_VALUE">
-        
-        <PartDraw x="0" y="0" width="130" height="64">
-          <RoundRectangle x="1" y="1" width="128" height="62" cornerRadiusX="12" cornerRadiusY="12">
+        <PartDraw x="0" y="0" width="125" height="64">
+          <RoundRectangle x="1" y="1" width="123" height="62" cornerRadiusX="12" cornerRadiusY="12">
             <Fill color="[CONFIGURATION.palette.4]"/>
             <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
           </RoundRectangle>
         </PartDraw>
-        <PartText x="7" y="8" width="116" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="15" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="28" width="116" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartDraw x="10" y="56" width="110" height="4">
-          <RoundRectangle x="0" y="0" width="110" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-          <RoundRectangle x="0" y="0" width="110" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.3]"/>
-            <Transform target="width" value="clamp(([COMPLICATION.RANGED_VALUE_VALUE]-[COMPLICATION.RANGED_VALUE_MIN])/([COMPLICATION.RANGED_VALUE_MAX]-[COMPLICATION.RANGED_VALUE_MIN]),0,1)*110"/>
-          </RoundRectangle>
-        </PartDraw>
+        <Condition>
+          <Expressions><Expression name="level0"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] < 0.111]]></Expression><Expression name="level1"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.111 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.222]]></Expression><Expression name="level2"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.222 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.333]]></Expression><Expression name="level3"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.333 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.444]]></Expression><Expression name="level4"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.444 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.555]]></Expression><Expression name="level5"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.555 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.666]]></Expression><Expression name="level6"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.666 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.777]]></Expression><Expression name="level7"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.777 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.888]]></Expression><Expression name="level8"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.888]]></Expression></Expressions>
+
+        <Compare expression="level0">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF5555"><![CDATA[✦]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF5555">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF5555"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level1">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF6E50"><![CDATA[✦]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF6E50">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF6E50"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level2">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF884D"><![CDATA[✦]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF884D">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF884D"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level3">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFA94D"><![CDATA[✦]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FFA94D">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FFA94D"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level4">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#F1FA8C"><![CDATA[✦]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#F1FA8C">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#F1FA8C"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level5">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#C8F280"><![CDATA[✦]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#C8F280">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#C8F280"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level6">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#9EEE71"><![CDATA[✦]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#9EEE71">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#9EEE71"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level7">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#70E569"><![CDATA[✦]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#70E569">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#70E569"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level8">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#50FA7B"><![CDATA[✦]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#50FA7B">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#50FA7B"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+          <Default>
+            <PartText x="6" y="11" width="113" height="44">
+              <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" color="[CONFIGURATION.palette.1]"><Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text>
+            </PartText>
+          </Default>
+        </Condition>
       </Complication>
     </ComplicationSlot>
 
-    <ComplicationSlot x="20" y="252" width="95" height="72"
-        slotId="6" name="culture" displayName="slot_culture"
-        supportedTypes="SHORT_TEXT RANGED_VALUE EMPTY">
-      <DefaultProviderPolicy
-          primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService"
-          primaryProviderType="SHORT_TEXT"
-          defaultSystemProvider="WATCH_BATTERY"
-          defaultSystemProviderType="SHORT_TEXT"/>
-      <BoundingBox x="0" y="0" width="95" height="72" outlinePadding="2"/>
-      <Complication type="SHORT_TEXT">
-        
-        <PartDraw x="0" y="0" width="95" height="72">
-          <RoundRectangle x="1" y="1" width="93" height="70" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="10" width="81" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="13" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="33" width="81" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-      </Complication>
-      <Complication type="RANGED_VALUE">
-        
-        <PartDraw x="0" y="0" width="95" height="72">
-          <RoundRectangle x="1" y="1" width="93" height="70" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="10" width="81" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="13" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="33" width="81" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartDraw x="10" y="64" width="75" height="4">
-          <RoundRectangle x="0" y="0" width="75" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-          <RoundRectangle x="0" y="0" width="75" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.3]"/>
-            <Transform target="width" value="clamp(([COMPLICATION.RANGED_VALUE_VALUE]-[COMPLICATION.RANGED_VALUE_MIN])/([COMPLICATION.RANGED_VALUE_MAX]-[COMPLICATION.RANGED_VALUE_MIN]),0,1)*75"/>
-          </RoundRectangle>
-        </PartDraw>
+    <ComplicationSlot x="10" y="170" width="100" height="110" slotId="6" name="mythic" displayName="slot_mythic" supportedTypes="SMALL_IMAGE EMPTY">
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudMythicPanelService" primaryProviderType="SMALL_IMAGE"/>
+      <BoundingBox x="0" y="0" width="100" height="110" outlinePadding="2"/>
+      <Complication type="SMALL_IMAGE">
+        <PartImage x="0" y="0" width="100" height="110">
+          <Image resource="[COMPLICATION.SMALL_IMAGE]"/>
+        </PartImage>
       </Complication>
     </ComplicationSlot>
 
-    <ComplicationSlot x="20" y="126" width="95" height="72"
-        slotId="7" name="faith" displayName="slot_faith"
-        supportedTypes="SHORT_TEXT RANGED_VALUE EMPTY">
-      <DefaultProviderPolicy
-          primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService"
-          primaryProviderType="SHORT_TEXT"
-          defaultSystemProvider="WATCH_BATTERY"
-          defaultSystemProviderType="SHORT_TEXT"/>
-      <BoundingBox x="0" y="0" width="95" height="72" outlinePadding="2"/>
-      <Complication type="SHORT_TEXT">
-        
-        <PartDraw x="0" y="0" width="95" height="72">
-          <RoundRectangle x="1" y="1" width="93" height="70" cornerRadiusX="12" cornerRadiusY="12">
-            <Fill color="[CONFIGURATION.palette.4]"/>
-            <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-        </PartDraw>
-        <PartText x="7" y="10" width="81" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="13" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="33" width="81" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-      </Complication>
+    <ComplicationSlot x="25" y="90" width="125" height="64" slotId="7" name="wood" displayName="slot_wood" supportedTypes="RANGED_VALUE EMPTY">
+      <DefaultProviderPolicy primaryProvider="com.balthazar.kittenswear/com.balthazar.kittenswear.KittensComplicationService$HudWoodService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE"/>
+      <BoundingBox x="0" y="0" width="125" height="64" outlinePadding="2"/>
       <Complication type="RANGED_VALUE">
-        
-        <PartDraw x="0" y="0" width="95" height="72">
-          <RoundRectangle x="1" y="1" width="93" height="70" cornerRadiusX="12" cornerRadiusY="12">
+        <PartDraw x="0" y="0" width="125" height="64">
+          <RoundRectangle x="1" y="1" width="123" height="62" cornerRadiusX="12" cornerRadiusY="12">
             <Fill color="[CONFIGURATION.palette.4]"/>
             <Stroke thickness="2" color="[CONFIGURATION.palette.2]"/>
           </RoundRectangle>
         </PartDraw>
-        <PartText x="7" y="10" width="81" height="20">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="13" weight="BOLD" color="[CONFIGURATION.palette.3]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TITLE]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartText x="7" y="33" width="81" height="28">
-          <Text align="CENTER" ellipsis="TRUE">
-            <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="[CONFIGURATION.palette.1]">
-              <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
-            </Font>
-          </Text>
-        </PartText>
-        <PartDraw x="10" y="64" width="75" height="4">
-          <RoundRectangle x="0" y="0" width="75" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.2]"/>
-          </RoundRectangle>
-          <RoundRectangle x="0" y="0" width="75" height="4" cornerRadiusX="2" cornerRadiusY="2">
-            <Fill color="[CONFIGURATION.palette.3]"/>
-            <Transform target="width" value="clamp(([COMPLICATION.RANGED_VALUE_VALUE]-[COMPLICATION.RANGED_VALUE_MIN])/([COMPLICATION.RANGED_VALUE_MAX]-[COMPLICATION.RANGED_VALUE_MIN]),0,1)*75"/>
-          </RoundRectangle>
-        </PartDraw>
+        <Condition>
+          <Expressions><Expression name="level0"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] < 0.111]]></Expression><Expression name="level1"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.111 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.222]]></Expression><Expression name="level2"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.222 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.333]]></Expression><Expression name="level3"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.333 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.444]]></Expression><Expression name="level4"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.444 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.555]]></Expression><Expression name="level5"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.555 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.666]]></Expression><Expression name="level6"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.666 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.777]]></Expression><Expression name="level7"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.777 && [COMPLICATION.RANGED_VALUE_VALUE] < 0.888]]></Expression><Expression name="level8"><![CDATA[[COMPLICATION.RANGED_VALUE_VALUE] >= 0.888]]></Expression></Expressions>
+
+        <Compare expression="level0">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF5555"><![CDATA[♣]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF5555">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF5555"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level1">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF6E50"><![CDATA[♣]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF6E50">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF6E50"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level2">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF884D"><![CDATA[♣]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FF884D">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FF884D"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level3">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFA94D"><![CDATA[♣]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#FFA94D">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#FFA94D"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level4">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#F1FA8C"><![CDATA[♣]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#F1FA8C">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#F1FA8C"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level5">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#C8F280"><![CDATA[♣]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#C8F280">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#C8F280"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level6">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#9EEE71"><![CDATA[♣]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#9EEE71">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#9EEE71"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level7">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#70E569"><![CDATA[♣]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#70E569">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#70E569"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+
+        <Compare expression="level8">
+          <PartText x="5" y="5" width="30" height="54">
+            <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#50FA7B"><![CDATA[♣]]></Font></Text>
+          </PartText>
+          <PartText x="33" y="10" width="87" height="41">
+            <Text align="CENTER" ellipsis="TRUE">
+              <Font family="SYNC_TO_DEVICE" size="23" weight="BOLD" color="#50FA7B">
+                <Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template>
+              </Font>
+            </Text>
+          </PartText>
+          <PartDraw x="9" y="55" width="107" height="4">
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2"><Fill color="#44475A"/></RoundRectangle>
+            <RoundRectangle x="0" y="0" width="107" height="4" cornerRadiusX="2" cornerRadiusY="2">
+              <Fill color="#50FA7B"/>
+              <Transform target="width" value="clamp([COMPLICATION.RANGED_VALUE_VALUE],0,1)*107"/>
+            </RoundRectangle>
+          </PartDraw>
+        </Compare>
+          <Default>
+            <PartText x="6" y="11" width="113" height="44">
+              <Text align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" color="[CONFIGURATION.palette.1]"><Template><![CDATA[%s]]><Parameter expression="[COMPLICATION.TEXT]"/></Template></Font></Text>
+            </PartText>
+          </Default>
+        </Condition>
       </Complication>
     </ComplicationSlot>
   </Scene>
