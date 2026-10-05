@@ -178,7 +178,8 @@ public class KittensComplicationService extends ComplicationDataSourceService {
   Class<?>[] services=new Class<?>[]{
    KittensComplicationService.class,
    HudCatnipService.class, HudWoodService.class, HudScienceService.class, HudFaithService.class,
-   HudMetalsPanelService.class, HudIndustryPanelService.class, HudVillagePanelService.class, HudMythicPanelService.class
+   HudMetalsPanelService.class, HudIndustryPanelService.class, HudVillagePanelService.class, HudMythicPanelService.class,
+   HudRawPanelService.class, HudRarePanelService.class, HudBottomPanelService.class
   };
   for(Class<?> cls:services){
    try{
@@ -213,6 +214,10 @@ public static abstract class HudFixedResourceService extends ComplicationDataSou
   float fraction=capped?(float)Math.max(0,Math.min(1,value/r.max)):0f;
   String fallback=capped?Math.round(fraction*100f)+"%":shortNumber(value);
   ComplicationText text=capped?dynamicPercentText(r,fallback):dynamicValueText(r,fallback);
+  String secondaryFallback=capped
+   ?shortNumber(value)+" / "+shortNumber(r.max)
+   :shortNumber(value);
+  ComplicationText secondary=new PlainComplicationText.Builder(secondaryFallback).build();
   String desc=r.title+" "+fallback;
   PlainComplicationText cd=new PlainComplicationText.Builder(desc).build();
   PendingIntent tap=tapIntent(id);
@@ -221,10 +226,12 @@ public static abstract class HudFixedResourceService extends ComplicationDataSou
    DynamicBuilders.DynamicFloat dyn=capped?dynamicFraction(r):DynamicBuilders.DynamicFloat.constant(0f);
    return new RangedValueComplicationData.Builder(dyn,fraction,0f,1f,cd)
     .setText(text)
+    .setTitle(secondary)
     .setTapAction(tap)
     .build();
   }
   return new ShortTextComplicationData.Builder(text,cd)
+   .setTitle(secondary)
    .setTapAction(tap)
    .build();
  }
@@ -405,12 +412,12 @@ public static abstract class HudPanelComplicationService extends ComplicationDat
   }
  }
 
- private static int statusColor(double ratio){
+ static int statusColor(double ratio){
   int idx=(int)Math.round(Math.max(0,Math.min(1,ratio))*8.0);
   return STEPS[Math.max(0,Math.min(8,idx))];
  }
 
- private static int resourceColor(String n){
+ static int resourceColor(String n){
   switch(n){
    case "minerals": return Color.rgb(189,189,189);
    case "coal": return Color.rgb(130,130,140);
@@ -432,7 +439,7 @@ public static abstract class HudPanelComplicationService extends ComplicationDat
   }
  }
 
- private static String abbrev(String n){
+ static String abbrev(String n){
   switch(n){
    case "minerals": return "MIN";
    case "coal": return "COAL";
@@ -454,7 +461,7 @@ public static abstract class HudPanelComplicationService extends ComplicationDat
   }
  }
 
- private static void drawIcon(Canvas c,Paint p,String n,float cx,float cy,float s,int color){
+ static void drawIcon(Canvas c,Paint p,String n,float cx,float cy,float s,int color){
   p.setColor(color);p.setStrokeWidth(2.6f);p.setStyle(Paint.Style.STROKE);p.setStrokeCap(Paint.Cap.ROUND);
   Path q=new Path();
   switch(n){
@@ -532,4 +539,121 @@ public static class HudIndustryPanelService extends HudPanelComplicationService 
 public static class HudVillagePanelService extends HudPanelComplicationService { @Override protected String panelName(){return "Village";} @Override protected String[] resourceNames(){return new String[]{"manpower","culture","kittens","starchart"};} }
 
 public static class HudMythicPanelService extends HudPanelComplicationService { @Override protected String panelName(){return "Mythic";} @Override protected String[] resourceNames(){return new String[]{"unicorns","alicorn","necrocorn","timeCrystal"};} }
+
+public static abstract class HudListPanelService extends ComplicationDataSourceService {
+ private static final int W=320,H=300;
+ private static final int BG=Color.rgb(7,18,18);
+ private static final int BORDER=Color.rgb(0,255,200);
+ private static final int TEXT=Color.rgb(213,255,244);
+ protected abstract String panelName();
+ protected abstract String[] resources();
+
+ @Override public void onComplicationRequest(ComplicationRequest request,ComplicationRequestListener listener){
+  if(!ComplicationType.SMALL_IMAGE.equals(request.getComplicationType())){deliver(listener,new NoDataComplicationData());return;}
+  Bitmap b=render(false);
+  SmallImage img=new SmallImage.Builder(Icon.createWithBitmap(b),SmallImageType.PHOTO).build();
+  deliver(listener,new SmallImageComplicationData.Builder(img,new PlainComplicationText.Builder(panelName()).build()).setTapAction(tap(request.getComplicationInstanceId())).build());
+ }
+ @Override public ComplicationData getPreviewData(ComplicationType type){
+  if(!ComplicationType.SMALL_IMAGE.equals(type))return null;
+  SmallImage img=new SmallImage.Builder(Icon.createWithBitmap(render(true)),SmallImageType.PHOTO).build();
+  return new SmallImageComplicationData.Builder(img,new PlainComplicationText.Builder(panelName()).build()).build();
+ }
+ private Bitmap render(boolean preview){
+  Bitmap out=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);
+  Canvas c=new Canvas(out);c.drawColor(BG);
+  Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setStrokeCap(Paint.Cap.ROUND);
+  p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setColor(BORDER);c.drawRoundRect(2,2,W-2,H-2,18,18,p);
+  p.setStyle(Paint.Style.FILL);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));p.setTextSize(30);p.setColor(TEXT);p.setTextAlign(Paint.Align.LEFT);
+  c.drawText(panelName(),18,38,p);
+  c.drawRect(18,48,W-18,51,p);
+  String[] ns=resources();
+  for(int i=0;i<3;i++){
+   float cy=92+i*68;
+   ComplicationStore.ResourceInfo r=preview
+    ?new ComplicationStore.ResourceInfo(ns[i],ns[i],(i+1)*1234,(i+1)*2400,0,System.currentTimeMillis())
+    :ComplicationStore.findByName(this,ns[i]);
+   double value=r==null?0:r.projected(System.currentTimeMillis());
+   double ratio=(r!=null&&r.max>0)?Math.max(0,Math.min(1,value/r.max)):-1;
+   int accent=r==null?Color.rgb(90,100,105):(ratio>=0?HudPanelComplicationService.statusColor(ratio):HudPanelComplicationService.resourceColor(ns[i]));
+   HudPanelComplicationService.drawIcon(c,p,ns[i],32,cy-9,17,accent);
+   p.setStyle(Paint.Style.FILL);p.setTextAlign(Paint.Align.LEFT);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));p.setTextSize(22);p.setColor(TEXT);
+   c.drawText(HudPanelComplicationService.abbrev(ns[i]),58,cy-3,p);
+   p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(29);
+   c.drawText(r==null?"--":HudFixedResourceService.shortNumber(value),W-18,cy-3,p);
+   float l=58,t=cy+10,rr=W-18;
+   p.setColor(Color.rgb(25,60,60));c.drawRoundRect(l,t,rr,t+10,5,5,p);
+   if(ratio>=0){p.setColor(accent);c.drawRoundRect(l,t,(float)(l+(rr-l)*ratio),t+10,5,5,p);}
+   p.setColor(Color.rgb(0,105,100));c.drawRect(18,cy+31,W-18,cy+33,p);
+  }
+  return out;
+ }
+ private PendingIntent tap(int id){
+  Intent i=new Intent(this,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP);
+  return PendingIntent.getActivity(this,30000+id,i,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+ }
+ private static void deliver(ComplicationRequestListener l,ComplicationData d){try{l.onComplicationData(d);}catch(RemoteException ignored){}}
+}
+
+public static class HudRawPanelService extends HudListPanelService {
+ @Override protected String panelName(){return "RAW";}
+ @Override protected String[] resources(){return new String[]{"minerals","coal","iron"};}
+}
+public static class HudRarePanelService extends HudListPanelService {
+ @Override protected String panelName(){return "RARE";}
+ @Override protected String[] resources(){return new String[]{"gold","oil","uranium"};}
+}
+
+public static class HudBottomPanelService extends ComplicationDataSourceService {
+ private static final int W=720,H=250;
+ private static final int BG=Color.rgb(7,18,18);
+ private static final int BORDER=Color.rgb(0,255,200);
+ private static final int TEXT=Color.rgb(213,255,244);
+ private static final String[] NAMES=new String[]{"manpower","culture","unicorns"};
+
+ @Override public void onComplicationRequest(ComplicationRequest request,ComplicationRequestListener listener){
+  if(!ComplicationType.SMALL_IMAGE.equals(request.getComplicationType())){deliver(listener,new NoDataComplicationData());return;}
+  SmallImage img=new SmallImage.Builder(Icon.createWithBitmap(render(false)),SmallImageType.PHOTO).build();
+  deliver(listener,new SmallImageComplicationData.Builder(img,new PlainComplicationText.Builder("Iron Will resources").build()).setTapAction(tap(request.getComplicationInstanceId())).build());
+ }
+ @Override public ComplicationData getPreviewData(ComplicationType type){
+  if(!ComplicationType.SMALL_IMAGE.equals(type))return null;
+  SmallImage img=new SmallImage.Builder(Icon.createWithBitmap(render(true)),SmallImageType.PHOTO).build();
+  return new SmallImageComplicationData.Builder(img,new PlainComplicationText.Builder("Iron Will resources").build()).build();
+ }
+
+ private Bitmap render(boolean preview){
+  Bitmap out=Bitmap.createBitmap(W,H,Bitmap.Config.ARGB_8888);
+  Canvas c=new Canvas(out);c.drawColor(BG);
+  Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setStrokeCap(Paint.Cap.ROUND);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));
+  for(int i=0;i<3;i++){
+   float cx=120+i*240,cy=124,radius=96;
+   ComplicationStore.ResourceInfo r=preview
+    ?new ComplicationStore.ResourceInfo(NAMES[i],NAMES[i],new double[]{12600,3200,12}[i],new double[]{18000,5000,25}[i],0,System.currentTimeMillis())
+    :ComplicationStore.findByName(this,NAMES[i]);
+   double value=r==null?0:r.projected(System.currentTimeMillis());
+   double ratio=(r!=null&&r.max>0)?Math.max(0,Math.min(1,value/r.max)):-1;
+   int accent=r==null?Color.rgb(90,100,105):(ratio>=0?HudPanelComplicationService.statusColor(ratio):HudPanelComplicationService.resourceColor(NAMES[i]));
+   p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(14);
+   for(int s=0;s<8;s++){
+    float start=-150+s*37.5f;
+    p.setColor(Color.rgb(25,60,60));c.drawArc(cx-radius,cy-radius,cx+radius,cy+radius,start,28,false,p);
+    if(ratio<0 || s<Math.round(ratio*8)){p.setColor(accent);c.drawArc(cx-radius,cy-radius,cx+radius,cy+radius,start,28,false,p);}
+   }
+   HudPanelComplicationService.drawIcon(c,p,NAMES[i],cx,cy-42,24,accent);
+   p.setStyle(Paint.Style.FILL);p.setTextAlign(Paint.Align.CENTER);p.setColor(TEXT);p.setTextSize(25);c.drawText(label(NAMES[i]),cx,cy+2,p);
+   p.setTextSize(43);c.drawText(r==null?"--":HudFixedResourceService.shortNumber(value),cx,cy+50,p);
+   p.setTextSize(20);p.setColor(accent);
+   String max=(r!=null&&r.max>0)?"/ "+HudFixedResourceService.shortNumber(r.max):"";
+   c.drawText(max,cx,cy+78,p);
+  }
+  return out;
+ }
+ private static String label(String n){if("manpower".equals(n))return "MANPOWER";if("culture".equals(n))return "CULTURE";return "UNICORNS";}
+ private PendingIntent tap(int id){
+  Intent i=new Intent(this,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP);
+  return PendingIntent.getActivity(this,31000+id,i,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+ }
+ private static void deliver(ComplicationRequestListener l,ComplicationData d){try{l.onComplicationData(d);}catch(RemoteException ignored){}}
+}
 }
