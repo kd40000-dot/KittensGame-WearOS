@@ -1,0 +1,63 @@
+/* Dracula palette for the Wear OS adaptation.
+   This file is appended after wear.css so the round-screen layout is preserved. */
+:root{
+  color-scheme:dark;
+  --green:#bd93f9;
+  --muted:#bfc3d5;
+  --panel:#21222c;
+  --dr-bg:#282a36;
+  --dr-bg-dark:#21222c;
+  --dr-control:#343746;
+  --dr-border:#44475a;
+  --dr-text:#f8f8f2;
+  --dr-muted:#bfc3d5;
+  --dr-purple:#bd93f9;
+  --dr-cyan:#8be9fd;
+  --dr-red:#ff5555;
+}
+html,body{background:#282a36!important;color:#f8f8f2!important}
+body.scheme_dracula,body.scheme-dracula{background:#282a36!important;color:#f8f8f2!important}
+a{color:#8be9fd!important}
+button,input,select,textarea{
+  color:#f8f8f2!important;
+  background:#343746!important;
+  border-color:#44475a!important;
+}
+button:active,.btn:active{background:#44475a!important;border-color:#bd93f9!important}
+#wearHeader strong{color:#8be9fd!important}
+#wearSeason,#wearStatus,#wearNipRate,.wear-label,#wearResources small,#wearSettings p{color:#bfc3d5!important}
+.wear-nav button{background:#21222c!important;color:#f8f8f2!important;border:1px solid #44475a!important}
+.wear-nav button.active{background:#44475a!important;color:#f8f8f2!important;border-color:#bd93f9!important}
+#wearQuick{background:#21222c!important}
+#wearQuick b{color:#8be9fd!important}
+#wearHome{background:#343746!important;color:#bd93f9!important;box-shadow:0 0 12px #21222c!important}
+#wearResources .resource-card{background:#21222c!important;border:1px solid #44475a!important}
+.resource-meter{background:#44475a!important}.resource-meter i{background:#bd93f9!important}
+#gameContainerId .btn{
+  background:#343746!important;
+  color:#f8f8f2!important;
+  border-color:#44475a!important;
+}
+#gameContainerId .btn.disabled{
+  background:#21222c!important;
+  color:#9298b3!important;
+  border-color:#44475a!important;
+}
+#gameContainerId .btn .wear-info{
+  background:#21222c!important;
+  color:#8be9fd!important;
+  border-top-color:#44475a!important;
+}
+.btn.modern a{
+  background:#21222c!important;
+  color:#bd93f9!important;
+  border-color:#44475a!important;
+}
+.panelContainer .title,.panelContainer .panelTitle{color:#bd93f9!important}
+#rightColumn .msg{border-bottom-color:#44475a!important}
+.dialog,#wearDetail,#wearMenu{
+  background:#282a36!important;
+  color:#f8f8f2!important;
+}
+#wearDetailBody .desc{color:#bfc3d5!important}
+.wear-warning,span.genericWarning{color:#ff5555!important}
