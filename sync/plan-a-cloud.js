@@ -78,50 +78,72 @@
         return {ok:false,type:'needs-adoption',canonicalRevision:canonical.revision.revision};
       }
 
+      // Read the remote device head *before* creating immutable batch/snapshot files.
+      // This prevents an acknowledged local branch from creating an orphan upload
+      // every poll merely because GitHub has already advanced its head.
+      const current=await mailbox.readDeviceHead(deviceId);
+      const currentHead=current&&current.json;
+      const remoteAck=Number(currentHead&&currentHead.acknowledgedSeq)||0;
+      if(remoteAck){
+        planA.discardThrough(remoteAck);
+        state.lastPublishedSeq=Math.max(Number(state.lastPublishedSeq)||0,remoteAck);
+      }
+
       const all=planA.journal();
       const entries=all.filter(e=>(Number(e.seq)||0)>(Number(state.lastPublishedSeq)||0));
-      if(!entries.length)return {ok:true,type:'no-op',published:0};
+      if(!entries.length){
+        saveState(state);
+        return {ok:true,type:'no-op',published:0,acknowledgedSeq:remoteAck};
+      }
 
       const first=entries[0].seq,last=entries.at(-1).seq;
+
+      // If GitHub already references this sequence range, recover local state
+      // instead of uploading it again after an app restart/network race.
+      if(currentHead&&(currentHead.pendingBatches||[]).length &&
+         currentHead.baseRevision===state.baseRevision &&
+         (Number(currentHead.lastSeq)||0)>=last){
+        state.lastPublishedSeq=Math.max(Number(state.lastPublishedSeq)||0,Number(currentHead.lastSeq)||0);
+        saveState(state);
+        return {ok:true,type:'already-published',published:0,lastSeq:currentHead.lastSeq};
+      }
+
+      // A different-base pending branch means another local publication is still
+      // unresolved. Do not overwrite that head; reconciliation/polling will retry.
+      if(currentHead&&(currentHead.pendingBatches||[]).length &&
+         currentHead.baseRevision!==state.baseRevision){
+        return {ok:false,type:'device-head-busy',current:currentHead,retry:true};
+      }
+
       const capturedAt=Date.now();
       const publicationId=deviceId+'-'+first+'-'+last+'-'+capturedAt;
       const snapshotSave=JSON.parse(JSON.stringify(getSave()));
       const snapshotHash=await sha256(JSON.stringify(snapshotSave));
       const batch={
-        schema:1,
-        id:publicationId,
-        deviceId,
-        baseRevision:state.baseRevision,
-        createdAt:capturedAt,
-        firstSeq:first,lastSeq:last,
-        entries
+        schema:1,id:publicationId,deviceId,baseRevision:state.baseRevision,
+        createdAt:capturedAt,firstSeq:first,lastSeq:last,entries
       };
       const snapshot={
-        schema:1,
-        id:publicationId,
-        deviceId,
-        baseRevision:state.baseRevision,
-        capturedAt,
-        lastSeq:last,
-        sha256:snapshotHash,
-        save:snapshotSave
+        schema:1,id:publicationId,deviceId,baseRevision:state.baseRevision,
+        capturedAt,lastSeq:last,sha256:snapshotHash,save:snapshotSave
       };
+
       const appended=await mailbox.appendBatch(deviceId,batch);
       const snapped=await mailbox.appendSnapshot(deviceId,snapshot);
-      const current=await mailbox.readDeviceHead(deviceId);
-      const currentHead=current&&current.json;
-      if(currentHead&&currentHead.baseRevision!==state.baseRevision){
-        return {ok:false,type:'device-head-rebased',current:currentHead,batchPath:appended.path,snapshotPath:snapped.path};
-      }
+
+      // It is valid for an idle/acknowledged remote head to point at a newer
+      // canonical revision while these unpublished actions were made on an older
+      // local revision. Writing the old base here preserves the true ancestry;
+      // the orchestrator will perform a stale-branch merge safely.
       const pending=[...new Set([...(currentHead&&currentHead.pendingBatches||[]),appended.path])];
       const next={
-        schema:1,deviceId,baseRevision:state.baseRevision,
-        lastSeq:last,pendingBatches:pending,
+        schema:1,deviceId,baseRevision:state.baseRevision,lastSeq:last,
+        acknowledgedSeq:remoteAck,pendingBatches:pending,
         snapshotPath:snapped.path,snapshotCapturedAt:capturedAt,snapshotSha256:snapshotHash,
         updatedAt:Date.now()
       };
       const updated=await mailbox.updateDeviceHead(deviceId,next,current&&current.sha);
-      if(updated.conflict)return {ok:false,type:'device-head-race',batchPath:appended.path,snapshotPath:snapped.path};
+      if(updated.conflict)return {ok:false,type:'device-head-race',batchPath:appended.path,snapshotPath:snapped.path,retry:true};
 
       state.lastPublishedSeq=last;
       saveState(state);
@@ -230,20 +252,47 @@
       const canonical=await readCanonicalRevision();
       if(!canonical)return {ok:false,type:'needs-bootstrap'};
       const state=loadState();
-      if(state.lastAppliedRevision===canonical.revision.revision)return {ok:true,type:'already-current',revision:canonical.revision};
+
+      const deviceHead=await mailbox.readDeviceHead(deviceId);
+      const remoteHead=deviceHead&&deviceHead.json;
+      const remoteAck=Number(remoteHead&&remoteHead.acknowledgedSeq)||0;
+      if(remoteAck){
+        planA.discardThrough(remoteAck);
+        state.lastPublishedSeq=Math.max(Number(state.lastPublishedSeq)||0,remoteAck);
+      }
+
+      if(state.lastAppliedRevision===canonical.revision.revision){
+        saveState(state);
+        return {ok:true,type:'already-current',revision:canonical.revision};
+      }
 
       const localPending=planA.journal().filter(e=>(Number(e.seq)||0)>(Number(state.lastPublishedSeq)||0));
-      if(localPending.length)return {ok:false,type:'local-unpublished-actions',count:localPending.length};
+      if(localPending.length){
+        saveState(state);
+        return {ok:false,type:'local-unpublished-actions',count:localPending.length};
+      }
 
       if(applySave)await applySave(canonical.revision.save);
-      planA.clearJournal();
+      planA.discardThrough(state.lastPublishedSeq);
       await planA.checkpoint(canonical.revision.save);
-      saveState({
-        ...state,
-        baseRevision:canonical.revision.revision,
-        lastAppliedRevision:canonical.revision.revision,
-        lastPublishedSeq:0
-      });
+
+      // Keep the device head aligned with the canonical revision when it has no
+      // unresolved branch. This makes passive polling deterministic.
+      if(!remoteHead||!(remoteHead.pendingBatches||[]).length){
+        const next={
+          schema:1,deviceId,baseRevision:canonical.revision.revision,
+          lastSeq:Math.max(Number(remoteHead&&remoteHead.lastSeq)||0,Number(state.lastPublishedSeq)||0),
+          acknowledgedSeq:Math.max(remoteAck,Number(state.lastPublishedSeq)||0),
+          pendingBatches:[],snapshotPath:null,snapshotCapturedAt:null,snapshotSha256:null,
+          updatedAt:Date.now()
+        };
+        const up=await mailbox.updateDeviceHead(deviceId,next,deviceHead&&deviceHead.sha);
+        if(up.conflict)return {ok:false,type:'device-head-race',retry:true};
+      }
+
+      state.baseRevision=canonical.revision.revision;
+      state.lastAppliedRevision=canonical.revision.revision;
+      saveState(state);
       return {ok:true,type:'applied',revision:canonical.revision};
     }
 
