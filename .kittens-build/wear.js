@@ -629,6 +629,30 @@
  const settings=node('section',{id:'wearSettings',hidden:true});resources.after(settings);
  settings.append(node('div',{className:'wear-label'},'Your game'));
  function wearEsc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+ function normalizeDraculaSave(save){
+  if(!save||typeof save!=='object')return save;
+  if(!save.game)save.game={};
+  save.game.colorScheme='dracula';
+  const schemes=Array.isArray(save.game.unlockedSchemes)?save.game.unlockedSchemes.slice():[];
+  if(!schemes.includes('dracula'))schemes.unshift('dracula');
+  save.game.unlockedSchemes=schemes;
+  return save;
+ }
+ function getDraculaSave(){return normalizeDraculaSave(game.save());}
+ function forceDraculaLocal(){
+  if(!window.game)return;
+  game.colorScheme='dracula';
+  if(!Array.isArray(game.unlockedSchemes))game.unlockedSchemes=[];
+  if(!game.unlockedSchemes.includes('dracula'))game.unlockedSchemes.unshift('dracula');
+  if(game.ui){
+   if(Array.isArray(game.ui.allSchemes)&&!game.ui.allSchemes.includes('dracula'))game.ui.allSchemes.unshift('dracula');
+   if(Array.isArray(game.ui.defaultSchemes)&&!game.ui.defaultSchemes.includes('dracula'))game.ui.defaultSchemes.unshift('dracula');
+   try{game.ui.updateOptions();}catch(e){console.warn('Could not refresh Dracula options',e);}
+  }
+  const opt=document.querySelector('#schemeToggle option[value="dracula"]');
+  if(opt)opt.textContent='Dracula';
+  document.body.classList.add('scheme_dracula');
+ }
  async function waitNative(url){for(;;){await new Promise(r=>setTimeout(r,500));const q=await fetch(url,{cache:'no-store'});let x;try{x=await q.json();}catch(e){throw new Error('Native operation returned invalid JSON: '+e.message);}if(x.state!=='waiting')return x;}}
  function opError(title,x){detail('<h2>'+wearEsc(title)+'</h2><p><b>Operation:</b> '+wearEsc(x.operation||'unknown')+'</p><p><b>Error type:</b> '+wearEsc(x.type||'unknown')+'</p><p><b>Message:</b> '+wearEsc(x.message||'No message')+'</p>'+(x.cause?'<p><b>Cause:</b> '+wearEsc(x.cause)+'</p>':'')+(x.detail?'<p><b>Details:</b> '+wearEsc(x.detail)+'</p>':''));}
  function showExportBox(text){
@@ -754,8 +778,8 @@
  }
  async function save(manual){if(!ready || game.currentSaveIsBroken){if(manual)opError('Save failed',{operation:'save',type:'GameStateError',message:'The game is not ready to save or reports the current save as broken.',detail:'No new save file was created.'});return;}try{let data=game.save();const endpoint=manual?'/save-manual':'/backup';const r=await fetch(endpoint,{method:'POST',body:JSON.stringify(data),keepalive:true});let x;try{x=await r.json();}catch(e){throw new Error('Save service returned invalid JSON: '+e.message);}if(!r.ok||x.state==='error'){if(manual)opError('Save failed',x);return;}if(manual){let msg='<h2>Save complete</h2><p><b>'+wearEsc(x.fileName||'KittensGame save')+'</b></p><p>Location: <b>'+wearEsc(x.location||'internal storage')+'</b></p><p>Internal recovery copy: <b>'+(x.internal?'OK':'FAILED')+'</b><br>Visible timestamped copy: <b>'+(x.visible?'OK':'FAILED')+'</b></p>';if(x.detail)msg+='<p><b>Warnings:</b> '+wearEsc(x.detail)+'</p>';detail(msg);}}catch(e){if(manual)opError('Save failed',{operation:'save',type:e.name,message:e.message,detail:'The request to the native save service failed.'});}}
  async function importSave(text,quiet){
-  text=text.trim();const parsed=JSON.parse(text.startsWith('{')?text:game.decompressLZData(text));text=game.compressLZData(JSON.stringify(parsed));if(!parsed || !Array.isArray(parsed.resources) || !parsed.game)throw Error('Not a Kittens Game save');const previous=LCstorage[KEY];
-  return new Promise((resolve,reject)=>game.saveImportText(text,error=>{if(error){LCstorage[KEY]=previous;game.load();game.render();reject(error);}else{game.opts.enableRedshift=true;game.opts.useWorkers=false;if(quiet)save(false);else save(true);go('play');resolve();}}));
+  text=text.trim();let parsed=JSON.parse(text.startsWith('{')?text:game.decompressLZData(text));if(!parsed || !Array.isArray(parsed.resources) || !parsed.game)throw Error('Not a Kittens Game save');parsed=normalizeDraculaSave(parsed);text=game.compressLZData(JSON.stringify(parsed));const previous=LCstorage[KEY];
+  return new Promise((resolve,reject)=>game.saveImportText(text,error=>{if(error){LCstorage[KEY]=previous;game.load();forceDraculaLocal();game.render();reject(error);}else{game.opts.enableRedshift=true;game.opts.useWorkers=false;forceDraculaLocal();if(quiet)save(false);else save(true);go('play');resolve();}}));
  }
 
  async function wearGithubRequest(req){
@@ -766,7 +790,7 @@
  }
  async function initPlanACloud(){
   if(!planASync&&window.KittensPlanA){
-   planASync=KittensPlanA.create({deviceId:'watch',getSave:()=>game.save(),onEntry:()=>schedulePlanACloud()});
+   planASync=KittensPlanA.create({deviceId:'watch',getSave:()=>getDraculaSave(),onEntry:()=>schedulePlanACloud()});
    if(!planASync.getCheckpoint())await planASync.checkpoint(game.save());
   }
   if(planACloud)return true;
@@ -774,8 +798,8 @@
   if(cfg.state!=='success'||!cfg.configured)return false;
   planAMailbox=KittensGitHubMailbox.create({owner:'kd40000-dot',repo:'KittensGame-Sync',branch:'main',request:wearGithubRequest});
   planACloud=KittensPlanACloud.create({
-   deviceId:'watch',planA:planASync,mailbox:planAMailbox,getSave:()=>game.save(),
-   applySave:saveObj=>importSave(game.compressLZData(JSON.stringify(saveObj)),true)
+   deviceId:'watch',planA:planASync,mailbox:planAMailbox,getSave:()=>getDraculaSave(),
+   applySave:saveObj=>importSave(game.compressLZData(JSON.stringify(normalizeDraculaSave(saveObj))),true)
   });
   return true;
  }
@@ -918,6 +942,7 @@
    if(!LCstorage[KEY]){try{const r=await fetch('/restore'),backup=await r.json();if(backup&&backup.saveVersion)LCstorage[KEY]=JSON.stringify(backup);}catch(e){}}
    classes.game.Server.prototype.refresh=function(){};classes.game.Server.prototype.fetchBcoinPrice=function(){return $.Deferred().resolve().promise();};installDetails();originalInit();
    if(!window.game||!game.resPool)throw Error('Game engine did not initialize');
+   forceDraculaLocal();
    ready=true;game.opts.disableTelemetry=true;game.opts.enableRedshift=true;game.opts.useWorkers=false;game.autosaveFrequency=50;
    try{await initPlanACloud();startPlanAPolling();}catch(e){console.warn('Plan A initialization failed',e);startPlanAPolling();}
    status('Offline · saved on this watch');go('play');
