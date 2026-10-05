@@ -86,14 +86,39 @@ final class ComplicationStore {
   JSONObject root=new JSONObject(json);
   root.getJSONArray("resources");
   root.put("timestamp",System.currentTimeMillis());
-  prefs(c).edit().putString(KEY_SNAPSHOT,root.toString()).apply();
 
-  for(int id:configuredInstanceIds(c)){
-   ResourceInfo r=selectedInfo(c,id);
-   if(r!=null && r.max>0 && r.projected(System.currentTimeMillis())<r.max) scheduleFullAlarm(c,id,r);
+  SharedPreferences p=prefs(c);
+  String previous=p.getString(KEY_SNAPSHOT,null);
+  Set<Integer> ids=configuredInstanceIds(c);
+  java.util.HashMap<Integer,ResourceInfo> before=new java.util.HashMap<>();
+  for(int id:ids)before.put(id,findIn(previous,selected(c,id)));
+
+  String next=root.toString();
+  p.edit().putString(KEY_SNAPSHOT,next).apply();
+
+  boolean trackedChanged=false;
+  long now=System.currentTimeMillis();
+  for(int id:ids){
+   ResourceInfo r=findIn(next,selected(c,id));
+   if(meaningfulStateChange(before.get(id),r))trackedChanged=true;
+   if(r!=null && r.max>0 && r.projected(now)<r.max) scheduleFullAlarm(c,id,r);
    else cancelFullAlarm(c,id);
   }
-  requestUpdate(c,false);
+
+  // A spend/craft/build action must invalidate the visible complication immediately.
+  // Otherwise ordinary refreshes may be throttled for several minutes.
+  requestUpdate(c,trackedChanged);
+ }
+
+ static boolean meaningfulStateChange(ResourceInfo before,ResourceInfo now){
+  if(before==null||now==null)return before!=now;
+  if(!nearlyEqual(before.max,now.max)||!nearlyEqual(before.rate,now.rate))return true;
+  double expected=before.projected(now.timestamp);
+  return !nearlyEqual(expected,now.value);
+ }
+ private static boolean nearlyEqual(double a,double b){
+  double scale=Math.max(1.0,Math.max(Math.abs(a),Math.abs(b)));
+  return Math.abs(a-b)<=Math.max(1e-4,scale*1e-6);
  }
 
  static List<ResourceInfo> resources(Context c){
