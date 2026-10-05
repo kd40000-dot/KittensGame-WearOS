@@ -32,6 +32,7 @@ jobs:
           cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" export-tools/
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" export-tools/
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" export-tools/lib/
+          cp -R "$ANDROID_HOME/build-tools/35.0.0/lib64" export-tools/
       - uses: actions/upload-artifact@v4
         with:
           name: android-build-tools-35-signing
