@@ -3,7 +3,7 @@ name: Build Kittens Village Watch Face
 on:
   push:
     branches:
-      - kittens-hud-v2-watchface
+      - kittens-hud-ironwill-watchface
     paths:
       - 'watchface-kittens-village/**'
       - '.github/workflows/kittens-village-watchface-build.yml'
@@ -63,13 +63,13 @@ jobs:
           SRC="watchface-kittens-village"
           mkdir -p build/wff
           "$BT/aapt2" compile --dir "$SRC/res" -o build/wff/resources.zip
-          "$BT/aapt2" link             -o build/wff/Kittens-Village-HUDv2-WFF2-unsigned.apk             -I "$PLATFORM"             --manifest "$SRC/AndroidManifest.xml"             --min-sdk-version 34             --target-sdk-version 34             --version-code 2             --version-name 2.0.0             --rename-manifest-package com.balthazar.kittensvillage             build/wff/resources.zip
-          "$BT/zipalign" -f -P 16 4             build/wff/Kittens-Village-HUDv2-WFF2-unsigned.apk             build/wff/Kittens-Village-HUDv2-WFF2-aligned-unsigned.apk
-          "$BT/aapt2" dump badging build/wff/Kittens-Village-HUDv2-WFF2-aligned-unsigned.apk
+          "$BT/aapt2" link             -o build/wff/Kittens-IronWill-HUD-WFF2-unsigned.apk             -I "$PLATFORM"             --manifest "$SRC/AndroidManifest.xml"             --min-sdk-version 34             --target-sdk-version 34             --version-code 3             --version-name 3.0.0             --rename-manifest-package com.balthazar.kittensvillage             build/wff/resources.zip
+          "$BT/zipalign" -f -P 16 4             build/wff/Kittens-IronWill-HUD-WFF2-unsigned.apk             build/wff/Kittens-IronWill-HUD-WFF2-aligned-unsigned.apk
+          "$BT/aapt2" dump badging build/wff/Kittens-IronWill-HUD-WFF2-aligned-unsigned.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Kittens-Village-HUDv2-WFF2
-          path: build/wff/Kittens-Village-HUDv2-WFF2-aligned-unsigned.apk
+          name: Kittens-IronWill-HUD-WFF2
+          path: build/wff/Kittens-IronWill-HUD-WFF2-aligned-unsigned.apk
           if-no-files-found: error
           retention-days: 7
