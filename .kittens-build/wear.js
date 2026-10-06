@@ -677,6 +677,7 @@
       await ensurePrivate();
       const canonical=await readCanonicalRevision();
       if(!canonical)return {ok:false,type:'needs-bootstrap'};
+      const stateBefore=loadState();
 
       const loaded=await loadBranches(canonical.revision);
       let result;
@@ -721,6 +722,11 @@
       const advanced=await mailbox.updateCanonical(nextHead,canonical.head.sha);
       if(advanced.conflict)return {ok:false,type:'canonical-race',retry:true};
 
+      const localContinuation=
+        loaded.branches.length>0 &&
+        loaded.branches.every(b=>b.deviceId===deviceId) &&
+        stateBefore.lastAppliedRevision===canonical.revision.revision;
+
       const ack=[];
       for(const b of loaded.branches){
         const read=loaded.headReads[b.deviceId];
@@ -732,6 +738,23 @@
         const a=await mailbox.updateDeviceHead(b.deviceId,next,read&&read.sha);
         ack.push({deviceId:b.deviceId,ok:!a.conflict});
       }
+
+      if(localContinuation){
+        const ownAck=loaded.branches
+          .filter(b=>b.deviceId===deviceId)
+          .reduce((m,b)=>Math.max(m,Number(b.lastSeq)||0),0);
+        if(ownAck)planA.discardThrough(ownAck);
+        const state=loadState();
+        state.lastPublishedSeq=Math.max(Number(state.lastPublishedSeq)||0,ownAck);
+        state.baseRevision=revision.revision;
+        state.lastAppliedRevision=revision.revision;
+        saveState(state);
+        return {
+          ok:true,type:result.type,revision,canonicalHead:nextHead,ack,
+          localAlreadyApplied:true,skippedImport:true
+        };
+      }
+
       return {ok:true,type:result.type,revision,canonicalHead:nextHead,ack};
     }
 
