@@ -17,7 +17,16 @@ row = (
 )
 
 if 'opt: "hideIronWillBreakers"' in text:
-    print("Iron Will protection option already present")
+    import re
+    pattern = re.compile(
+        r'\s*\$r\(WSimpleOpt, \{title: "Hide Iron Will-[^"]+", opt: "hideIronWillBreakers", desc: "[^"]*"\}\),\n'
+    )
+    replacement = '\n' + row
+    updated, count = pattern.subn(replacement, text, count=1)
+    if count != 1:
+        raise SystemExit("existing Iron Will option found but its row could not be normalized")
+    path.write_text(updated, encoding="utf-8")
+    print("Updated existing Iron Will relevance option")
     raise SystemExit(0)
 if needle not in text:
     raise SystemExit("expected Hide Sell row not found; refusing to patch unknown mobile Options layout")
