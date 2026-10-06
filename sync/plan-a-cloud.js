@@ -38,6 +38,25 @@
       return {head,revision:revision.json,path};
     }
 
+    // True only when every canonical revision after baseRevision was produced
+    // exclusively from this same device. In that case a stale local snapshot is
+    // a continuation of its own acknowledged history, not a divergent branch.
+    async function canonicalAdvancedOnlyByDevice(baseRevision, canonicalRevision, id){
+      if(!baseRevision||!canonicalRevision||!id)return false;
+      if(baseRevision===canonicalRevision.revision)return true;
+      let cur=canonicalRevision,steps=0;
+      while(cur&&cur.revision!==baseRevision&&steps++<200){
+        const merged=cur.mergedFrom||[];
+        if(!merged.length||merged.some(x=>x.deviceId!==id))return false;
+        if(!cur.parentRevision)return false;
+        if(cur.parentRevision===baseRevision)return true;
+        const prev=await mailbox.readRevision('canonical/revisions/'+cur.parentRevision+'.json');
+        if(!prev||!prev.json)return false;
+        cur=prev.json;
+      }
+      return !!(cur&&cur.revision===baseRevision);
+    }
+
     async function bootstrapFromLocal(){
       await ensurePrivate();
       const existing=await readCanonicalRevision();
@@ -239,7 +258,55 @@
     async function getActiveConflict(){
       await ensurePrivate();
       const c=await mailbox.readConflict();
-      return c&&c.json&&c.json.state==='active'?c.json:null;
+      if(!(c&&c.json&&c.json.state==='active'))return null;
+
+      const conflict=c.json;
+      const ids=Object.keys(conflict.branches||{});
+      if(ids.length===1){
+        const id=ids[0],info=conflict.branches[id];
+        const canonical=await readCanonicalRevision();
+        if(canonical&&conflict.canonicalRevision===canonical.revision.revision&&
+           info&&info.snapshotPath&&
+           await canonicalAdvancedOnlyByDevice(info.baseRevision,canonical.revision,id)){
+          const snapshot=await mailbox.readSnapshot(info.snapshotPath);
+          if(snapshot&&snapshot.json&&snapshot.json.save){
+            const chosenSave=JSON.parse(JSON.stringify(snapshot.json.save));
+            const hash=await sha256(JSON.stringify(chosenSave));
+            const revision=global.KittensPlanAOrchestrator.makeRevision(
+              canonical.revision,chosenSave,[{
+                deviceId:id,baseRevision:info.baseRevision,lastSeq:info.lastSeq,
+                batchIds:info.batchIds||[],snapshotPath:info.snapshotPath,
+                snapshotCapturedAt:info.snapshotCapturedAt||snapshot.json.capturedAt||0
+              }],hash,Date.now()
+            );
+            revision.autoResolution={type:'self-lineage-fast-forward',conflictId:conflict.id,deviceId:id};
+            const written=await mailbox.writeRevision(revision);
+            const nextHead={
+              schema:1,revision:revision.revision,revisionPath:written.path,sha256:hash,
+              parentRevision:canonical.revision.revision,updatedAt:Date.now(),
+              autoResolution:{type:'self-lineage-fast-forward',conflictId:conflict.id,deviceId:id}
+            };
+            const advanced=await mailbox.updateCanonical(nextHead,canonical.head.sha);
+            if(!advanced.conflict){
+              const h=await mailbox.readDeviceHead(id);
+              if(h&&h.json){
+                const lastSeq=Math.max(Number(h.json.lastSeq)||0,Number(info.lastSeq)||0);
+                await mailbox.updateDeviceHead(id,{
+                  schema:1,deviceId:id,baseRevision:revision.revision,lastSeq,
+                  acknowledgedSeq:lastSeq,pendingBatches:[],
+                  snapshotPath:null,snapshotCapturedAt:null,snapshotSha256:null,updatedAt:Date.now()
+                },h.sha);
+              }
+              const resolved={...conflict,state:'resolved',resolvedAt:Date.now(),
+                resolution:'self-lineage-fast-forward',resolvedBy:deviceId,
+                resolutionRevision:revision.revision};
+              await mailbox.updateConflict(resolved,c.sha);
+              return null;
+            }
+          }
+        }
+      }
+      return conflict;
     }
 
     async function reconcileCloud(){
@@ -248,7 +315,20 @@
       if(!canonical)return {ok:false,type:'needs-bootstrap'};
 
       const loaded=await loadBranches(canonical.revision);
-      const result=global.KittensPlanAOrchestrator.reconcile(canonical.revision,loaded.branches);
+      let result;
+      if(loaded.branches.length===1){
+        const b=loaded.branches[0];
+        if(b.snapshot&&b.snapshot.save&&b.baseRevision!==canonical.revision.revision&&
+           await canonicalAdvancedOnlyByDevice(b.baseRevision,canonical.revision,b.deviceId)){
+          result={
+            ok:true,type:'self-lineage-fast-forward',canonical:canonical.revision,
+            mergedSave:JSON.parse(JSON.stringify(b.snapshot.save)),
+            carrierDeviceId:b.deviceId,staleDevices:[b.deviceId],
+            applied:[{deviceId:b.deviceId,count:b.entries.length}]
+          };
+        }
+      }
+      if(!result)result=global.KittensPlanAOrchestrator.reconcile(canonical.revision,loaded.branches);
       if(!result.ok){
         if(result.type==='merge-conflict'){
           result.cloudConflict=await publishConflict(result,loaded,canonical);
