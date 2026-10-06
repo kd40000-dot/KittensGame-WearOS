@@ -77,79 +77,6 @@
     }
     return true;
   }
-  function installIronWillPhoneOptionsUi(){
-    if(!global.React||!global.WOptionsPopup||!global.WSimpleOpt)return false;
-    var proto=global.WOptionsPopup.prototype;
-    if(!proto||proto.__ironWillGuardUiPatched)return true;
-    var originalRender=proto.render;
-    if(typeof originalRender!=='function')return false;
-    proto.render=function(){
-      var root=originalRender.apply(this,arguments);
-      try{
-        var rootChildren=React.Children.toArray(root.props.children);
-        var page=rootChildren[1];
-        if(!page||!page.props)return root;
-        var pageChildren=React.Children.toArray(page.props.children);
-        var pageContent=pageChildren[0];
-        if(!pageContent||!pageContent.props)return root;
-        var contentChildren=React.Children.toArray(pageContent.props.children);
-        var listBlock=contentChildren[1];
-        if(!listBlock||!listBlock.props)return root;
-        var optionChildren=React.Children.toArray(listBlock.props.children);
-        var alreadyThere=optionChildren.some(function(child){
-          return child&&child.props&&child.props.opt==='hideIronWillBreakers';
-        });
-        if(!alreadyThere){
-          optionChildren.push(React.createElement(global.WSimpleOpt,{
-            key:'iron-will-protection',
-            title:'Hide Iron Will-breaking purchases',
-            opt:'hideIronWillBreakers',
-            desc:'While Iron Will is active, hides and blocks purchases that would end Iron Will mode.'
-          }));
-        }
-        contentChildren[1]=React.cloneElement(listBlock,listBlock.props,optionChildren);
-        pageChildren[0]=React.cloneElement(pageContent,pageContent.props,contentChildren);
-        rootChildren[1]=React.cloneElement(page,page.props,pageChildren);
-        return React.cloneElement(root,root.props,rootChildren);
-      }catch(e){
-        console.warn('Iron Will phone option injection failed',e);
-        return root;
-      }
-    };
-    proto.__ironWillGuardUiPatched=true;
-    return true;
-  }
-
-  function ensureIronWillPhoneOptionsUi(){
-    if(installIronWillPhoneOptionsUi())return;
-    setTimeout(ensureIronWillPhoneOptionsUi,250);
-  }
-
-  function armIronWillPhoneOptionsUi(){
-    if(global.WOptionsPopup){
-      installIronWillPhoneOptionsUi();
-      return true;
-    }
-    try{
-      var d=Object.getOwnPropertyDescriptor(global,'WOptionsPopup');
-      if(d&&!d.configurable)return false;
-      Object.defineProperty(global,'WOptionsPopup',{
-        configurable:true,
-        get:function(){return undefined;},
-        set:function(value){
-          Object.defineProperty(global,'WOptionsPopup',{
-            value:value,writable:true,enumerable:true,configurable:true
-          });
-          installIronWillPhoneOptionsUi();
-        }
-      });
-      return true;
-    }catch(e){
-      console.warn('Could not arm Iron Will mobile Options hook',e);
-      return false;
-    }
-  }
-
   function forceDraculaLocal(){
     if(!window.game)return;
     game.colorScheme='dracula';
@@ -490,7 +417,6 @@
   function init(){
     if(!window.game||typeof game.save!=='function')return false;
     installIronWillGuard();
-    ensureIronWillPhoneOptionsUi();
     forceDraculaLocal();ensureRuntime();startPolling();return true;
   }
 
@@ -500,6 +426,5 @@
     checkConflict:checkConflict,resolveConflict:resolveConflictChoice,installIronWillGuard:installIronWillGuard,
     installIronWillPhoneOptionsUi:installIronWillPhoneOptionsUi,armIronWillPhoneOptionsUi:armIronWillPhoneOptionsUi
   };
-  armIronWillPhoneOptionsUi();
   (function autoInit(){try{if(init())return;}catch(e){}setTimeout(autoInit,250);})();
 })(window);
