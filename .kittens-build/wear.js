@@ -1071,16 +1071,23 @@
    opError('Transfer failed',{operation:'transfer-start',type:e.name||'TransferError',message:e.message||String(e),detail:'The 1.1.5 game runtime was left unchanged.'});
   }
  }
- installIronWillGuard();
  const iwGuardRow=node('label',{id:'wearIwGuardRow'});
  iwGuardRow.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 6px;margin:4px 0 10px;font-size:13px;line-height:1.25;';
  const iwGuard=node('input',{id:'wearIwGuard',type:'checkbox'});
- iwGuard.checked=!!game.opts.hideIronWillBreakers;
+ iwGuard.checked=!!(window.game&&game.opts&&game.opts.hideIronWillBreakers);
  iwGuard.onchange=()=>{
-  installIronWillGuard();
-  game.settings.set('hideIronWillBreakers',!!iwGuard.checked);
-  try{game.render();}catch(e){}
-  status(iwGuard.checked?'Iron Will protection enabled':'Iron Will protection disabled');
+  try{
+   if(!window.game||!game.opts)throw new Error('Game is still starting');
+   game.opts.hideIronWillBreakers=!!iwGuard.checked;
+   if(game.settings&&typeof game.settings.set==='function'){
+    try{game.settings.set('hideIronWillBreakers',!!iwGuard.checked);}catch(e){}
+   }
+   installIronWillGuard();
+   try{game.render();}catch(e){}
+   status(iwGuard.checked?'Iron Will filter enabled':'Iron Will filter disabled');
+  }catch(e){
+   status('Iron Will filter unavailable: '+e.message);
+  }
  };
  const iwText=node('span',{},'Hide Iron Will-irrelevant purchases');
  iwGuardRow.append(iwGuard,iwText);
@@ -1300,6 +1307,11 @@
    if(!LCstorage[KEY]){try{const r=await fetch('/restore'),backup=await r.json();if(backup&&backup.saveVersion)LCstorage[KEY]=JSON.stringify(backup);}catch(e){}}
    classes.game.Server.prototype.refresh=function(){};classes.game.Server.prototype.fetchBcoinPrice=function(){return $.Deferred().resolve().promise();};installDetails();originalInit();
    if(!window.game||!game.resPool)throw Error('Game engine did not initialize');
+   try{
+    installIronWillGuard();
+    const iwBox=$id('wearIwGuard');if(iwBox)iwBox.checked=!!(game.opts&&game.opts.hideIronWillBreakers);
+    try{game.render();}catch(e){}
+   }catch(e){console.warn('Iron Will relevance filter disabled after startup error',e);}
    forceDraculaLocal();
    ready=true;game.opts.disableTelemetry=true;game.opts.enableRedshift=true;game.opts.useWorkers=false;game.autosaveFrequency=50;
    try{await initPlanACloud();startPlanAPolling();}catch(e){console.warn('Plan A initialization failed',e);startPlanAPolling();}
