@@ -125,6 +125,31 @@
     setTimeout(ensureIronWillPhoneOptionsUi,250);
   }
 
+  function armIronWillPhoneOptionsUi(){
+    if(global.WOptionsPopup){
+      installIronWillPhoneOptionsUi();
+      return true;
+    }
+    try{
+      var d=Object.getOwnPropertyDescriptor(global,'WOptionsPopup');
+      if(d&&!d.configurable)return false;
+      Object.defineProperty(global,'WOptionsPopup',{
+        configurable:true,
+        get:function(){return undefined;},
+        set:function(value){
+          Object.defineProperty(global,'WOptionsPopup',{
+            value:value,writable:true,enumerable:true,configurable:true
+          });
+          installIronWillPhoneOptionsUi();
+        }
+      });
+      return true;
+    }catch(e){
+      console.warn('Could not arm Iron Will mobile Options hook',e);
+      return false;
+    }
+  }
+
   function forceDraculaLocal(){
     if(!window.game)return;
     game.colorScheme='dracula';
@@ -473,7 +498,8 @@
     init:init,getStatus:getStatus,getToken:getToken,setToken:setToken,verify:verify,bootstrap:bootstrap,adoptCanonical:adoptCanonical,
     syncNow:syncNow,scheduleAutoSync:scheduleAutoSync,provisionWatch:provisionWatch,normalizeWatchUrl:normalizeWatchUrl,
     checkConflict:checkConflict,resolveConflict:resolveConflictChoice,installIronWillGuard:installIronWillGuard,
-    installIronWillPhoneOptionsUi:installIronWillPhoneOptionsUi
+    installIronWillPhoneOptionsUi:installIronWillPhoneOptionsUi,armIronWillPhoneOptionsUi:armIronWillPhoneOptionsUi
   };
+  armIronWillPhoneOptionsUi();
   (function autoInit(){try{if(init())return;}catch(e){}setTimeout(autoInit,250);})();
 })(window);
