@@ -18,6 +18,63 @@
   function getDraculaSave(){
     return normalizeDraculaSave(game.save());
   }
+
+  function installIronWillGuard(){
+    if(!window.game||!game.settings||!game.opts)return false;
+    var settingName='hideIronWillBreakers';
+    var settingsArr=game.settings.settingsArr||[];
+    var found=false;
+    for(var i=0;i<settingsArr.length;i++){
+      if(settingsArr[i]&&settingsArr[i].name===settingName){found=true;break;}
+    }
+    if(!found){
+      settingsArr.push({
+        name:settingName,
+        defaultValue:false,
+        label:'Hide Iron Will-breaking purchases',
+        tooltip:'While Iron Will is active, hides and blocks anything the game marks as breaking Iron Will.',
+        triggerUpdateUI:true,
+        onChange:function(g){try{g.render();}catch(e){}}
+      });
+    }
+    if(typeof game.opts[settingName]!=='boolean')game.opts[settingName]=false;
+
+    var uiRoot=global.com&&com.nuclearunicorn&&com.nuclearunicorn.game&&com.nuclearunicorn.game.ui;
+    if(!uiRoot||!uiRoot.BuildingBtnController||!uiRoot.BuildingStackableBtnController)return false;
+
+    var baseProto=uiRoot.BuildingBtnController.prototype;
+    if(!baseProto.__ironWillGuardVisiblePatched){
+      var originalVisible=baseProto.updateVisible;
+      baseProto.updateVisible=function(model){
+        if(originalVisible)originalVisible.apply(this,arguments);
+        if(this.game&&this.game.ironWill&&this.game.opts&&this.game.opts.hideIronWillBreakers&&
+           model&&model.metadata&&model.metadata.breakIronWill){
+          model.visible=false;
+        }
+      };
+      baseProto.__ironWillGuardVisiblePatched=true;
+    }
+
+    var stackProto=uiRoot.BuildingStackableBtnController.prototype;
+    function protectedPurchase(ctrl,model){
+      return !!(ctrl&&ctrl.game&&ctrl.game.ironWill&&ctrl.game.opts&&ctrl.game.opts.hideIronWillBreakers&&
+        model&&model.metadata&&model.metadata.breakIronWill);
+    }
+    if(!stackProto.__ironWillGuardBuyPatched){
+      var originalBuy=stackProto.buyItem;
+      stackProto.buyItem=function(model){
+        if(protectedPurchase(this,model))return {itemBought:false,reason:'iron-will-protected'};
+        return originalBuy.apply(this,arguments);
+      };
+      var originalBuild=stackProto.build;
+      stackProto.build=function(model){
+        if(protectedPurchase(this,model))return 0;
+        return originalBuild.apply(this,arguments);
+      };
+      stackProto.__ironWillGuardBuyPatched=true;
+    }
+    return true;
+  }
   function forceDraculaLocal(){
     if(!window.game)return;
     game.colorScheme='dracula';
@@ -357,13 +414,14 @@
   }
   function init(){
     if(!window.game||typeof game.save!=='function')return false;
+    installIronWillGuard();
     forceDraculaLocal();ensureRuntime();startPolling();return true;
   }
 
   global.KittensPlanAPhone={
     init:init,getStatus:getStatus,getToken:getToken,setToken:setToken,verify:verify,bootstrap:bootstrap,adoptCanonical:adoptCanonical,
     syncNow:syncNow,scheduleAutoSync:scheduleAutoSync,provisionWatch:provisionWatch,normalizeWatchUrl:normalizeWatchUrl,
-    checkConflict:checkConflict,resolveConflict:resolveConflictChoice
+    checkConflict:checkConflict,resolveConflict:resolveConflictChoice,installIronWillGuard:installIronWillGuard
   };
   (function autoInit(){try{if(init())return;}catch(e){}setTimeout(autoInit,250);})();
 })(window);
