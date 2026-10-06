@@ -902,6 +902,51 @@
   return save;
  }
  function getDraculaSave(){return normalizeDraculaSave(game.save());}
+ function installIronWillGuard(){
+  if(!window.game||!game.settings||!game.opts)return false;
+  const settingName='hideIronWillBreakers';
+  const settingsArr=game.settings.settingsArr||[];
+  if(!settingsArr.some(s=>s&&s.name===settingName)){
+   settingsArr.push({
+    name:settingName,
+    defaultValue:false,
+    label:'Hide Iron Will-breaking purchases',
+    tooltip:'While Iron Will is active, hides and blocks anything the game marks as breaking Iron Will.',
+    triggerUpdateUI:true,
+    onChange:g=>{try{g.render();}catch(e){}}
+   });
+  }
+  if(typeof game.opts[settingName]!=='boolean')game.opts[settingName]=false;
+  const uiRoot=window.com&&com.nuclearunicorn&&com.nuclearunicorn.game&&com.nuclearunicorn.game.ui;
+  if(!uiRoot||!uiRoot.BuildingBtnController||!uiRoot.BuildingStackableBtnController)return false;
+  const baseProto=uiRoot.BuildingBtnController.prototype;
+  if(!baseProto.__ironWillGuardVisiblePatched){
+   const originalVisible=baseProto.updateVisible;
+   baseProto.updateVisible=function(model){
+    if(originalVisible)originalVisible.apply(this,arguments);
+    if(this.game&&this.game.ironWill&&this.game.opts&&this.game.opts.hideIronWillBreakers&&
+       model&&model.metadata&&model.metadata.breakIronWill)model.visible=false;
+   };
+   baseProto.__ironWillGuardVisiblePatched=true;
+  }
+  const stackProto=uiRoot.BuildingStackableBtnController.prototype;
+  const protectedPurchase=(ctrl,model)=>!!(ctrl&&ctrl.game&&ctrl.game.ironWill&&ctrl.game.opts&&
+    ctrl.game.opts.hideIronWillBreakers&&model&&model.metadata&&model.metadata.breakIronWill);
+  if(!stackProto.__ironWillGuardBuyPatched){
+   const originalBuy=stackProto.buyItem;
+   stackProto.buyItem=function(model){
+    if(protectedPurchase(this,model))return {itemBought:false,reason:'iron-will-protected'};
+    return originalBuy.apply(this,arguments);
+   };
+   const originalBuild=stackProto.build;
+   stackProto.build=function(model){
+    if(protectedPurchase(this,model))return 0;
+    return originalBuild.apply(this,arguments);
+   };
+   stackProto.__ironWillGuardBuyPatched=true;
+  }
+  return true;
+ }
  function forceDraculaLocal(){
   if(!window.game)return;
   game.colorScheme='dracula';
@@ -1008,6 +1053,20 @@
    opError('Transfer failed',{operation:'transfer-start',type:e.name||'TransferError',message:e.message||String(e),detail:'The 1.1.5 game runtime was left unchanged.'});
   }
  }
+ installIronWillGuard();
+ const iwGuardRow=node('label',{id:'wearIwGuardRow'});
+ iwGuardRow.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 6px;margin:4px 0 10px;font-size:13px;line-height:1.25;';
+ const iwGuard=node('input',{id:'wearIwGuard',type:'checkbox'});
+ iwGuard.checked=!!game.opts.hideIronWillBreakers;
+ iwGuard.onchange=()=>{
+  installIronWillGuard();
+  game.settings.set('hideIronWillBreakers',!!iwGuard.checked);
+  try{game.render();}catch(e){}
+  status(iwGuard.checked?'Iron Will protection enabled':'Iron Will protection disabled');
+ };
+ const iwText=node('span',{},'Hide Iron Will-breaking purchases');
+ iwGuardRow.append(iwGuard,iwText);
+ settings.append(iwGuardRow);
  button('Save now',async()=>{await save(true);},settings);
  button('Export save',async()=>{try{const text=game.compressLZData(JSON.stringify(game.save()));showExportBox(text);const response=await fetch('/export',{method:'POST',body:JSON.stringify({exportText:text})});let x;try{x=await response.json();}catch(e){x={state:'error',operation:'clipboard-copy',type:e.name,message:e.message,detail:'The export string is still visible below for manual copying.'};}const msg=$id('wearExportStatus');if(x.state==='success'){msg.textContent='Copied to Android clipboard · '+x.characters+' characters';status('Save copied to clipboard');}else{msg.textContent='Automatic clipboard copy failed. Long-press the box and copy manually.';msg.dataset.error=JSON.stringify(x);}}catch(e){opError('Export failed',{operation:'export',type:e.name,message:e.message,detail:'The game could not generate an export string.'});}},settings);
  button('Import save',()=>showImportBox(),settings);
@@ -1025,6 +1084,7 @@
  const sheet=node('section',{id:'wearDetail',hidden:true});sheet.append(node('div',{id:'wearDetailBody'}));button('Close',()=>sheet.hidden=true,sheet);document.body.append(sheet);
  function fmt(x){return game.getDisplayValueExt(x);}
  function update(){if(!ready)return;
+  const iwGuardBox=$id('wearIwGuard');if(iwGuardBox)iwGuardBox.checked=!!(game.opts&&game.opts.hideIronWillBreakers);
   const cat=game.resPool.get('catnip');$id('wearNip').textContent=fmt(cat.value);$id('wearNipRate').textContent=' / '+fmt(cat.maxValue);
   $id('wearSeason').textContent='Year '+game.calendar.year+' · '+game.calendar.getCurSeason().title+(game.isPaused?' · Paused':'');
   let visible=game.tabs.filter(t=>t.visible);let list=visible.map(t=>t.tabId+':'+t.tabName).join('|');
