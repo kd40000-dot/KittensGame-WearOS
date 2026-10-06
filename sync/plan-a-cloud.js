@@ -89,6 +89,20 @@
         state.lastPublishedSeq=Math.max(Number(state.lastPublishedSeq)||0,remoteAck);
       }
 
+      // If GitHub has already acknowledged this device's previous publication and
+      // cleared its pending head, that head's baseRevision is the canonical revision
+      // which incorporated our own work. Adopt it immediately as the ancestry for
+      // the next local action. Without this handoff, rapid continued play can keep
+      // publishing new actions against an old ancestor even though the previous
+      // actions are already present in canonical, causing false overspend conflicts.
+      if(currentHead &&
+         !(currentHead.pendingBatches||[]).length &&
+         currentHead.baseRevision &&
+         currentHead.baseRevision!==state.baseRevision &&
+         remoteAck>=(Number(state.lastPublishedSeq)||0)){
+        state.baseRevision=currentHead.baseRevision;
+      }
+
       const all=planA.journal();
       const entries=all.filter(e=>(Number(e.seq)||0)>(Number(state.lastPublishedSeq)||0));
       if(!entries.length){
