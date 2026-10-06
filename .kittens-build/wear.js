@@ -910,28 +910,46 @@
    settingsArr.push({
     name:settingName,
     defaultValue:false,
-    label:'Hide Iron Will-breaking purchases',
-    tooltip:'While Iron Will is active, hides and blocks anything the game marks as breaking Iron Will.',
+    label:'Hide Iron Will-irrelevant purchases',
+    tooltip:'While Iron Will is active, hides purchases that would break Iron Will or are useless without kittens.',
     triggerUpdateUI:true,
     onChange:g=>{try{g.render();}catch(e){}}
    });
   }
   if(typeof game.opts[settingName]!=='boolean')game.opts[settingName]=false;
+  const irrelevantWorkshop={
+   mineralHoes:true,ironHoes:true,
+   mineralAxes:true,ironAxes:true,steelAxe:true,titaniumAxe:true,alloyAxe:true,unobtainiumAxe:true,
+   register:true,geodesy:true,miningDrill:true,unobtainiumDrill:true,
+   logistics:true,augumentation:true,assistance:true,
+   concreteHuts:true,unobtainiumHuts:true,eludiumHuts:true
+  };
+  const filterActive=g=>!!(g&&g.ironWill&&g.opts&&g.opts.hideIronWillBreakers);
+  const irrelevantBuilding=meta=>!!(meta&&meta.name==='pasture'&&(Number(meta.stage)||0)===0);
+  const irrelevantUpgrade=meta=>!!(meta&&irrelevantWorkshop[meta.name]);
   const uiRoot=window.com&&com.nuclearunicorn&&com.nuclearunicorn.game&&com.nuclearunicorn.game.ui;
-  if(!uiRoot||!uiRoot.BuildingBtnController||!uiRoot.BuildingStackableBtnController)return false;
+  if(!uiRoot||!uiRoot.BuildingBtnController||!uiRoot.BuildingStackableBtnController||!uiRoot.UpgradeButtonController)return false;
   const baseProto=uiRoot.BuildingBtnController.prototype;
   if(!baseProto.__ironWillGuardVisiblePatched){
    const originalVisible=baseProto.updateVisible;
    baseProto.updateVisible=function(model){
     if(originalVisible)originalVisible.apply(this,arguments);
-    if(this.game&&this.game.ironWill&&this.game.opts&&this.game.opts.hideIronWillBreakers&&
-       model&&model.metadata&&model.metadata.breakIronWill)model.visible=false;
+    if(filterActive(this.game)&&model&&model.metadata&&
+       (model.metadata.breakIronWill||irrelevantBuilding(model.metadata)))model.visible=false;
    };
    baseProto.__ironWillGuardVisiblePatched=true;
   }
+  const upgradeProto=uiRoot.UpgradeButtonController.prototype;
+  if(!upgradeProto.__ironWillRelevancePatched){
+   const originalUpgradeVisible=upgradeProto.updateVisible;
+   upgradeProto.updateVisible=function(model){
+    if(originalUpgradeVisible)originalUpgradeVisible.apply(this,arguments);
+    if(filterActive(this.game)&&model&&irrelevantUpgrade(model.metadata))model.visible=false;
+   };
+   upgradeProto.__ironWillRelevancePatched=true;
+  }
   const stackProto=uiRoot.BuildingStackableBtnController.prototype;
-  const protectedPurchase=(ctrl,model)=>!!(ctrl&&ctrl.game&&ctrl.game.ironWill&&ctrl.game.opts&&
-    ctrl.game.opts.hideIronWillBreakers&&model&&model.metadata&&model.metadata.breakIronWill);
+  const protectedPurchase=(ctrl,model)=>!!(filterActive(ctrl&&ctrl.game)&&model&&model.metadata&&model.metadata.breakIronWill);
   if(!stackProto.__ironWillGuardBuyPatched){
    const originalBuy=stackProto.buyItem;
    stackProto.buyItem=function(model){
@@ -1064,7 +1082,7 @@
   try{game.render();}catch(e){}
   status(iwGuard.checked?'Iron Will protection enabled':'Iron Will protection disabled');
  };
- const iwText=node('span',{},'Hide Iron Will-breaking purchases');
+ const iwText=node('span',{},'Hide Iron Will-irrelevant purchases');
  iwGuardRow.append(iwGuard,iwText);
  settings.append(iwGuardRow);
  button('Save now',async()=>{await save(true);},settings);
