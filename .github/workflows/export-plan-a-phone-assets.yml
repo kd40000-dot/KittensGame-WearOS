@@ -24,6 +24,7 @@ jobs:
           cp sync/plan-a-cloud.js out/sync/
           cp phone/plan-a-phone.js out/phone/
           cp phone/plan-a-ui.js out/phone/
+          cp phone/patch-mobile-options-iwguard.py out/phone/
       - uses: actions/upload-artifact@v4
         with:
           name: Kittens-PlanA-Phone-Assets
