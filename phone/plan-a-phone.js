@@ -424,7 +424,6 @@
     init:init,getStatus:getStatus,getToken:getToken,setToken:setToken,verify:verify,bootstrap:bootstrap,adoptCanonical:adoptCanonical,
     syncNow:syncNow,scheduleAutoSync:scheduleAutoSync,provisionWatch:provisionWatch,normalizeWatchUrl:normalizeWatchUrl,
     checkConflict:checkConflict,resolveConflict:resolveConflictChoice,installIronWillGuard:installIronWillGuard,
-    installIronWillPhoneOptionsUi:installIronWillPhoneOptionsUi,armIronWillPhoneOptionsUi:armIronWillPhoneOptionsUi
   };
   (function autoInit(){try{if(init())return;}catch(e){}setTimeout(autoInit,250);})();
 })(window);
