@@ -479,7 +479,11 @@
          currentHead.baseRevision &&
          currentHead.baseRevision!==state.baseRevision &&
          remoteAck>=(Number(state.lastPublishedSeq)||0)){
-        state.baseRevision=currentHead.baseRevision;
+        const acknowledged=await mailbox.readRevision('canonical/revisions/'+currentHead.baseRevision+'.json');
+        if(acknowledged&&acknowledged.json&&
+           await canonicalAdvancedOnlyByDevice(state.baseRevision,acknowledged.json,deviceId)){
+          state.baseRevision=currentHead.baseRevision;
+        }
       }
 
       const all=planA.journal();
