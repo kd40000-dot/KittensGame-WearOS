@@ -10,9 +10,9 @@ text = path.read_text(encoding="utf-8")
 needle = '                        $r(WSimpleOpt, {title: $I("opts.hideSell"), opt: "hideSell", desc: $I("opts.hideSell.desc")}),\n'
 row = (
     '                        $r(WSimpleOpt, {'
-    'title: "Hide Iron Will-breaking purchases", '
+    'title: "Hide Iron Will-irrelevant purchases", '
     'opt: "hideIronWillBreakers", '
-    'desc: "While Iron Will is active, hides and blocks purchases that would end Iron Will mode."'
+    'desc: "While Iron Will is active, hides purchases that would break Iron Will or are useless without kittens."'
     '}),\n'
 )
 
