@@ -31,36 +31,66 @@
       settingsArr.push({
         name:settingName,
         defaultValue:false,
-        label:'Hide Iron Will-breaking purchases',
-        mobileTitle:'Hide Iron Will-breaking purchases',
-        mobileDesc:'While Iron Will is active, hides and blocks anything the game marks as breaking Iron Will.',
-        tooltip:'While Iron Will is active, hides and blocks anything the game marks as breaking Iron Will.',
+        label:'Hide Iron Will-irrelevant purchases',
+        mobileTitle:'Hide Iron Will-irrelevant purchases',
+        mobileDesc:'While Iron Will is active, hides purchases that would break Iron Will or are useless without kittens.',
+        tooltip:'While Iron Will is active, hides purchases that would break Iron Will or are useless without kittens.',
         triggerUpdateUI:true,
         onChange:function(g){try{g.render();}catch(e){}}
       });
     }
     if(typeof game.opts[settingName]!=='boolean')game.opts[settingName]=false;
 
+    var irrelevantWorkshop={
+      mineralHoes:true,ironHoes:true,
+      mineralAxes:true,ironAxes:true,steelAxe:true,titaniumAxe:true,alloyAxe:true,unobtainiumAxe:true,
+      register:true,geodesy:true,miningDrill:true,unobtainiumDrill:true,
+      logistics:true,augumentation:true,assistance:true,
+      concreteHuts:true,unobtainiumHuts:true,eludiumHuts:true
+    };
+    function filterActive(g){
+      return !!(g&&g.ironWill&&g.opts&&g.opts.hideIronWillBreakers);
+    }
+    function irrelevantBuilding(meta){
+      if(!meta)return false;
+      // Pasture only reduces kitten catnip demand. Its later Solar Farm stage is useful.
+      return meta.name==='pasture'&&(Number(meta.stage)||0)===0;
+    }
+    function irrelevantUpgrade(meta){
+      return !!(meta&&irrelevantWorkshop[meta.name]);
+    }
+
     var uiRoot=global.com&&com.nuclearunicorn&&com.nuclearunicorn.game&&com.nuclearunicorn.game.ui;
-    if(!uiRoot||!uiRoot.BuildingBtnController||!uiRoot.BuildingStackableBtnController)return false;
+    if(!uiRoot||!uiRoot.BuildingBtnController||!uiRoot.BuildingStackableBtnController||!uiRoot.UpgradeButtonController)return false;
 
     var baseProto=uiRoot.BuildingBtnController.prototype;
     if(!baseProto.__ironWillGuardVisiblePatched){
       var originalVisible=baseProto.updateVisible;
       baseProto.updateVisible=function(model){
         if(originalVisible)originalVisible.apply(this,arguments);
-        if(this.game&&this.game.ironWill&&this.game.opts&&this.game.opts.hideIronWillBreakers&&
-           model&&model.metadata&&model.metadata.breakIronWill){
+        if(filterActive(this.game)&&model&&model.metadata&&
+           (model.metadata.breakIronWill||irrelevantBuilding(model.metadata))){
           model.visible=false;
         }
       };
       baseProto.__ironWillGuardVisiblePatched=true;
     }
 
+    var upgradeProto=uiRoot.UpgradeButtonController.prototype;
+    if(!upgradeProto.__ironWillRelevancePatched){
+      var originalUpgradeVisible=upgradeProto.updateVisible;
+      upgradeProto.updateVisible=function(model){
+        if(originalUpgradeVisible)originalUpgradeVisible.apply(this,arguments);
+        if(filterActive(this.game)&&model&&irrelevantUpgrade(model.metadata)){
+          model.visible=false;
+        }
+      };
+      upgradeProto.__ironWillRelevancePatched=true;
+    }
+
     var stackProto=uiRoot.BuildingStackableBtnController.prototype;
     function protectedPurchase(ctrl,model){
-      return !!(ctrl&&ctrl.game&&ctrl.game.ironWill&&ctrl.game.opts&&ctrl.game.opts.hideIronWillBreakers&&
-        model&&model.metadata&&model.metadata.breakIronWill);
+      return !!(filterActive(ctrl&&ctrl.game)&&model&&model.metadata&&model.metadata.breakIronWill);
     }
     if(!stackProto.__ironWillGuardBuyPatched){
       var originalBuy=stackProto.buyItem;
