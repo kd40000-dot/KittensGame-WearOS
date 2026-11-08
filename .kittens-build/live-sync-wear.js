@@ -4,6 +4,7 @@
   var DEFAULT_ENDPOINT='https://kittens-live-sync.alike-fog.workers.dev';
   var client=null,overlay=null,lastMirrorRender=0;
   var statusEl=null,endpointInput=null,codeInput=null;
+  var lastNativeComplicationSnapshot=null;
 
   function esc(v){return String(v==null?'':v);}
 
@@ -40,6 +41,7 @@
             if(!Array.isArray(game.unlockedSchemes))game.unlockedSchemes=[];
             if(game.unlockedSchemes.indexOf('dracula')<0)game.unlockedSchemes.unshift('dracula');
             game.save();game.render();
+            try{pushNativeComplicationSnapshot(getResources(),Date.now(),true);}catch(e){}
           }catch(e){}
           resolve();
         });
@@ -61,6 +63,65 @@
       });
   }
 
+  function complicationSnapshot(resources,serverTime){
+    var now=Date.now();
+    var elapsed=Math.max(0,(now-Number(serverTime||now))/1000);
+    var out=[];
+    for(var i=0;i<(resources||[]).length;i++){
+      var incoming=resources[i]||{};
+      var local=game&&game.resPool?game.resPool.get(incoming.name):null;
+      var rate=Number(incoming.rate)||0;
+      var max=Number(incoming.max)||0;
+      var value=(Number(incoming.value)||0)+rate*elapsed;
+      if(max>0)value=Math.min(max,value);
+      out.push({
+        name:incoming.name,
+        title:(local&&local.title)||incoming.title||incoming.name,
+        value:Math.max(0,value),
+        max:max,
+        rate:rate
+      });
+    }
+    return {at:now,resources:out};
+  }
+
+  function nearly(a,b,scaleFactor,min){
+    a=Number(a)||0;b=Number(b)||0;
+    var scale=Math.max(1,Math.abs(a),Math.abs(b));
+    return Math.abs(a-b)<=Math.max(min||0.001,scale*(scaleFactor||1e-5));
+  }
+
+  function meaningfulComplicationSnapshot(next){
+    var prev=lastNativeComplicationSnapshot;
+    if(!prev)return true;
+    var old={};
+    for(var i=0;i<prev.resources.length;i++)old[prev.resources[i].name]=prev.resources[i];
+    if(prev.resources.length!==next.resources.length)return true;
+    var dt=Math.max(0,(next.at-prev.at)/1000);
+    for(var j=0;j<next.resources.length;j++){
+      var n=next.resources[j],p=old[n.name];
+      if(!p)return true;
+      if(!nearly(n.max,p.max,1e-8,1e-6)||!nearly(n.rate,p.rate,1e-6,1e-7))return true;
+      var expected=(Number(p.value)||0)+(Number(p.rate)||0)*dt;
+      if(Number(p.max)>0)expected=Math.min(Number(p.max),expected);
+      if(!nearly(n.value,expected,1e-5,0.001))return true;
+    }
+    return false;
+  }
+
+  function pushNativeComplicationSnapshot(resources,serverTime,force){
+    if(!game||!game.resPool)return;
+    var next=complicationSnapshot(resources,serverTime);
+    if(!force&&!meaningfulComplicationSnapshot(next))return;
+    lastNativeComplicationSnapshot=next;
+    fetch('/complication-state',{
+      method:'POST',
+      body:JSON.stringify({resources:next.resources}),
+      keepalive:true,
+      cache:'no-store'
+    }).catch(function(e){console.warn('Live Sync complication update failed',e);});
+  }
+
   function applyLiveResources(resources,serverTime){
     if(!game||!game.resPool)return;
     var elapsed=Math.max(0,(Date.now()-Number(serverTime||Date.now()))/1000);
@@ -72,6 +133,10 @@
       if(max>0)value=Math.min(max,value);
       r.value=Math.max(0,value);
     }
+    // Feed the same authoritative mirrored values into the native complication
+    // store. Passive production is filtered because native complications can
+    // project from value+rate; spends, crafts, cap/rate changes update at once.
+    pushNativeComplicationSnapshot(resources,serverTime,false);
     if(Date.now()-lastMirrorRender>900){
       lastMirrorRender=Date.now();
       try{game.render();}catch(e){}
