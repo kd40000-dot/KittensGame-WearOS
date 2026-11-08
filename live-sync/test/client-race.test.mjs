@@ -120,3 +120,30 @@ test("handoff-wait cannot remain stuck forever", async () => {
   assert.equal(h.client.getRole(),"claiming");
   assert.ok([...h.timers.values()].some(t => t.ms===1400),"handoff wait should schedule a retry");
 });
+
+
+test("reset release publishes the exact post-reset save and waits for acknowledgement", async () => {
+  const h=harness("phone");
+  await deliver(h.ws,{type:"welcome",state:{revision:5,ownerDeviceId:"phone",leaseUntil:999999}});
+  assert.equal(h.client.getRole(),"owner");
+
+  h.ws.sent.length=0;
+  const released=h.client.releaseSaveText("POST_RESET_SAVE",10000);
+
+  assert.equal(h.client.getRole(),"releasing");
+  assert.ok(
+    h.ws.sent.some(m => m.type==="release" && m.saveText==="POST_RESET_SAVE"),
+    "reset must publish the exact supplied post-reset save"
+  );
+  assert.ok(
+    !h.ws.sent.some(m => m.type==="release" && m.saveText==="SAVE"),
+    "reset must not fall back to the old in-memory game save"
+  );
+
+  await deliver(h.ws,{type:"release-ack",revision:6});
+  const ack=await released;
+
+  assert.equal(ack.revision,6);
+  assert.equal(h.client.getLastRevision(),6);
+  assert.equal(h.client.getRole(),"mirror");
+});
