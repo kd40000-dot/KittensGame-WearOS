@@ -22,8 +22,9 @@
     var configKey=PREFIX+deviceId+'.config';
     var revisionKey=PREFIX+deviceId+'.lastRevision';
     var ws=null,connected=false,authed=false,role='offline',serverState=null;
-    var reconnectTimer=0,heartbeatTimer=0,liveTimer=0,commitTimer=0;
+    var reconnectTimer=0,heartbeatTimer=0,liveTimer=0,commitTimer=0,claimRetryTimer=0;
     var reconnectDelay=700,manualDisconnect=false,pendingClaim=false;
+    var wantControl=false,firstWelcome=true,pendingHandoffTo=null;
 
     function emit(message,extra){
       var detail={
@@ -111,17 +112,45 @@
       },500);
     }
 
-    function claim(){
-      if(!connected||!authed){pendingClaim=true;connect();return false;}
+    function clearClaimRetry(){
+      clearTimeout(claimRetryTimer);claimRetryTimer=0;
+    }
+
+    function scheduleClaimRetry(delay){
+      if(!wantControl||document.hidden||role==='owner')return;
+      clearClaimRetry();
+      claimRetryTimer=setTimeout(function(){
+        if(wantControl&&!document.hidden&&role!=='owner')claimInternal();
+      },delay==null?1800:delay);
+    }
+
+    function claimInternal(){
+      if(!connected||!authed){
+        pendingClaim=true;
+        connect();
+        scheduleClaimRetry(1800);
+        return false;
+      }
       pendingClaim=false;
       setRole('claiming','Live Sync: taking control…');
-      return send({type:'claim'});
+      var sent=send({type:'claim'});
+      scheduleClaimRetry(1800);
+      return sent;
+    }
+
+    function claim(){
+      wantControl=true;
+      return claimInternal();
     }
 
     function forceClaim(){
-      if(!connected||!authed)return false;
+      wantControl=true;
+      clearClaimRetry();
+      if(!connected||!authed){pendingClaim=true;connect();scheduleClaimRetry(1200);return false;}
       setRole('claiming','Live Sync: forcing control…');
-      return send({type:'force-claim'});
+      var sent=send({type:'force-claim'});
+      scheduleClaimRetry(1200);
+      return sent;
     }
 
     async function commitNow(){
@@ -145,6 +174,10 @@
     }
 
     async function release(){
+      wantControl=false;
+      pendingClaim=false;
+      pendingHandoffTo=null;
+      clearClaimRetry();
       if(role!=='owner')return;
       var saveText=null;
       try{saveText=opts.getSaveText?await opts.getSaveText():null;}catch(e){}
@@ -172,13 +205,20 @@
         authed=true;
         serverState=data.state||{};
         reconnectDelay=700;
+        var shouldClaim=pendingClaim||wantControl||(firstWelcome&&!document.hidden);
+        firstWelcome=false;
         if(serverState.ownerDeviceId===deviceId){
+          wantControl=true;
+          clearClaimRetry();
           setRole('owner','Live Sync connected · this device owns the session.');
           startOwnerLoops();
         }else{
           setRole('mirror','Live Sync connected · '+(serverState.ownerDeviceId||'no device')+' owns the session.');
         }
-        if(!document.hidden||pendingClaim)setTimeout(claim,50);
+        if(shouldClaim&&serverState.ownerDeviceId!==deviceId){
+          wantControl=true;
+          setTimeout(claimInternal,50);
+        }
         return;
       }
 
@@ -188,6 +228,8 @@
           ownerDeviceId:data.ownerDeviceId||deviceId,
           leaseUntil:Number(data.leaseUntil||0)
         };
+        wantControl=true;
+        clearClaimRetry();
         try{
           await applyCanonical(data.saveText,data.revision);
         }catch(e){
@@ -196,6 +238,17 @@
         }
         setRole('owner','Live Sync: control granted.');
         startOwnerLoops();
+        if(pendingHandoffTo){
+          var handoffTarget=pendingHandoffTo;
+          pendingHandoffTo=null;
+          try{
+            var handoffSave=opts.getSaveText?await opts.getSaveText():null;
+            if(handoffSave){
+              send({type:'handoff-state',saveText:handoffSave});
+              emit('Live Sync: handing control to '+handoffTarget+'…');
+            }
+          }catch(e){emit('Live Sync handoff flush failed: '+e.message);}
+        }
         return;
       }
 
@@ -204,6 +257,10 @@
         serverState.ownerDeviceId=data.ownerDeviceId||null;
         serverState.revision=Number(data.revision||serverState.revision||0);
         if(data.revision)setLastRevision(data.revision);
+        wantControl=false;
+        pendingClaim=false;
+        pendingHandoffTo=null;
+        clearClaimRetry();
         stopOwnerLoops();
         setRole('mirror','Live Sync: control moved to '+(data.ownerDeviceId||'the other device')+'.');
         return;
@@ -214,32 +271,68 @@
         serverState.ownerDeviceId=data.ownerDeviceId||null;
         serverState.revision=Number(data.revision||serverState.revision||0);
         serverState.leaseUntil=Number(data.leaseUntil||0);
-        if(serverState.ownerDeviceId!==deviceId&&role==='owner'){
-          stopOwnerLoops();
-          setRole('mirror','Live Sync: control moved to '+(serverState.ownerDeviceId||'the other device')+'.');
+
+        if(serverState.ownerDeviceId===deviceId){
+          // A stale/older socket for this same device may have received the
+          // actual grant. Ask the server to grant THIS socket too; the server
+          // already considers this device the owner, so this is a safe refresh.
+          wantControl=true;
+          if(role!=='owner'){
+            emit('Live Sync: repairing local ownership state…');
+            claimInternal();
+          }
+          return;
         }
+
+        if(!serverState.ownerDeviceId){
+          if(role==='owner'){
+            stopOwnerLoops();
+            setRole('mirror','Live Sync: session is currently unowned.');
+          }
+          if(wantControl&&!document.hidden)scheduleClaimRetry(80);
+          return;
+        }
+
+        if(role==='owner'){
+          stopOwnerLoops();
+          setRole('mirror','Live Sync: control moved to '+serverState.ownerDeviceId+'.');
+        }
+        if(wantControl&&!document.hidden)scheduleClaimRetry(900);
         return;
       }
 
       if(data.type==='handoff-request'){
-        if(role!=='owner')return;
+        pendingHandoffTo=data.requestedBy||'the other device';
+        if(role!=='owner'){
+          // The server only sends this to the device it currently considers
+          // owner. If our local role disagrees, refresh this socket first so
+          // we import the latest canonical state before flushing a handoff.
+          wantControl=true;
+          emit('Live Sync: repairing ownership before handoff…');
+          claimInternal();
+          return;
+        }
         var saveText=null;
         try{saveText=opts.getSaveText?await opts.getSaveText():null;}catch(e){}
         if(saveText)send({type:'handoff-state',saveText:saveText});
-        emit('Live Sync: handing control to '+(data.requestedBy||'the other device')+'…');
+        emit('Live Sync: handing control to '+pendingHandoffTo+'…');
+        pendingHandoffTo=null;
         return;
       }
 
       if(data.type==='handoff-wait'){
+        wantControl=true;
         setRole('claiming','Live Sync: waiting for '+(data.ownerDeviceId||'the other device')+' to hand off…');
+        scheduleClaimRetry(1400);
         return;
       }
 
       if(data.type==='owner-offline'){
-        setRole('mirror','Live Sync: '+(data.ownerDeviceId||'the other device')+' is offline; waiting for its safety lease.');
+        wantControl=true;
+        setRole('claiming','Live Sync: '+(data.ownerDeviceId||'the other device')+' is offline; waiting for its safety lease.');
         var wait=Math.max(250,Number(data.leaseUntil||0)-Date.now()+100);
-        clearTimeout(reconnectTimer);
-        reconnectTimer=setTimeout(claim,Math.min(wait,16000));
+        clearClaimRetry();
+        claimRetryTimer=setTimeout(function(){if(wantControl&&!document.hidden)claimInternal();},Math.min(wait,16000));
         return;
       }
 
@@ -281,8 +374,17 @@
       }
 
       if(data.type==='not-owner'){
+        serverState=serverState||{};
+        serverState.ownerDeviceId=data.ownerDeviceId||null;
         stopOwnerLoops();
-        setRole('mirror','Live Sync: '+(data.ownerDeviceId||'the other device')+' owns the session.');
+        if(data.ownerDeviceId===deviceId){
+          wantControl=true;
+          setRole('claiming','Live Sync: repairing local ownership state…');
+          scheduleClaimRetry(100);
+        }else{
+          setRole(wantControl?'claiming':'mirror','Live Sync: '+(data.ownerDeviceId||'the other device')+' owns the session.');
+          if(wantControl&&!document.hidden)scheduleClaimRetry(1200);
+        }
         return;
       }
 
@@ -319,6 +421,7 @@
       ws.onerror=function(){emit('Live Sync socket error.');};
       ws.onclose=function(){
         connected=false;authed=false;stopOwnerLoops();
+        if(role==='owner'||role==='claiming')wantControl=true;
         if(role!=='offline')setRole('offline','Live Sync disconnected; reconnecting…');
         scheduleReconnect();
       };
@@ -327,7 +430,10 @@
 
     function disconnect(){
       manualDisconnect=true;
-      clearTimeout(reconnectTimer);clearTimeout(commitTimer);
+      wantControl=false;
+      pendingClaim=false;
+      pendingHandoffTo=null;
+      clearTimeout(reconnectTimer);clearTimeout(commitTimer);clearClaimRetry();
       stopOwnerLoops();
       try{if(ws)ws.close();}catch(e){}
       ws=null;connected=false;authed=false;
