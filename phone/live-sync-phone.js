@@ -2,10 +2,13 @@
   'use strict';
 
   var SETUP_KEY='com.nuclearunicorn.kittengame.liveSync.phoneSetup';
+  var SAVE_KEY='com.nuclearunicorn.kittengame.savedata';
+  var PENDING_RESET_KEY='com.nuclearunicorn.kittengame.liveSync.phone.pendingReset';
   var DEFAULT_ENDPOINT='https://kittens-live-sync.alike-fog.workers.dev';
   var client=null;
   var status={configured:false,role:'offline',message:'Live Sync is not configured.',pairCode:null,pairExpiresAt:0};
   var overlay=null,lastMirrorRender=0;
+  var resetPublishing=false;
 
   function emit(message,extra){
     status.message=message||status.message;
@@ -55,7 +58,8 @@
   function applySaveText(text){
     return new Promise(function(resolve,reject){
       try{
-        var key='com.nuclearunicorn.kittengame.savedata';
+        if(localStorage.getItem(PENDING_RESET_KEY)){resolve();return;}
+        var key=SAVE_KEY;
         var backup='com.nuclearunicorn.kittengame.liveSync.backup';
         var previous=LCstorage[key];
         if(previous)LCstorage[backup]=previous;
@@ -136,6 +140,68 @@
     else showOverlay('The other device currently owns the live game. Tap below to hand control to this phone.');
   }
 
+  function pendingResetText(){
+    return localStorage.getItem(PENDING_RESET_KEY)||'';
+  }
+
+  function publishPendingReset(){
+    if(resetPublishing||!client)return;
+    var resetText=pendingResetText();
+    if(!resetText)return;
+    if(client.getRole()!=='owner'){
+      emit('Reset prepared · waiting for Live Sync control…');
+      client.claim();
+      return;
+    }
+
+    resetPublishing=true;
+    emit('Publishing reset to Live Sync…');
+    client.releaseSaveText(resetText,10000).then(function(){
+      resetPublishing=false;
+      try{LCstorage[SAVE_KEY]=resetText;}catch(e){}
+      localStorage.removeItem(PENDING_RESET_KEY);
+      emit('Reset synchronized. Reloading…');
+      window.location.reload();
+    }).catch(function(e){
+      resetPublishing=false;
+      try{LCstorage[SAVE_KEY]=resetText;}catch(ignore){}
+      emit('Reset prepared · retrying Live Sync: '+e.message);
+      setTimeout(function(){
+        if(!client)return;
+        if(client.getRole()==='owner')publishPendingReset();
+        else client.claim();
+      },900);
+    });
+  }
+
+  function installResetBridge(){
+    if(!global.game||game.__liveSyncResetPatched)return;
+    var originalResetAutomatic=game.resetAutomatic;
+    if(typeof originalResetAutomatic!=='function'||typeof game._resetInternal!=='function')return;
+
+    game.resetAutomatic=function(){
+      var cfg=client&&client.getConfig?client.getConfig():{};
+      if(!client||!cfg.endpoint||!cfg.sessionId||!cfg.deviceToken){
+        return originalResetAutomatic.apply(this,arguments);
+      }
+
+      var self=this;
+      this.timer.scheduleEvent(dojo.hitch(this,function(){
+        try{
+          self._resetInternal();
+          self.mobileSaveOnPause=false;
+          var resetText=LCstorage[SAVE_KEY];
+          if(!resetText)throw new Error('Kittens Game did not produce a post-reset save.');
+          localStorage.setItem(PENDING_RESET_KEY,resetText);
+          publishPendingReset();
+        }catch(e){
+          emit('Reset failed before Live Sync publish: '+e.message);
+        }
+      }));
+    };
+    game.__liveSyncResetPatched=true;
+  }
+
   function ensureClient(){
     if(client)return client;
     if(!global.KittensLiveSync)throw new Error('Live Sync client module is not loaded.');
@@ -149,6 +215,7 @@
       onStatus:function(st){
         status.role=st.role;status.configured=!!(st.config&&st.config.endpoint);
         emit(st.message||status.message,{role:st.role,serverState:st.serverState});
+        if(st.role==='owner'&&pendingResetText())setTimeout(publishPendingReset,0);
       }
     });
     return client;
@@ -157,6 +224,7 @@
   function init(){
     if(!global.game||typeof game.save!=='function'||!global.KittensLiveSync)return false;
     ensureClient();
+    installResetBridge();
     var cfg=client.getConfig();
     if(cfg.endpoint&&cfg.sessionId&&cfg.deviceToken){
       status.configured=true;
