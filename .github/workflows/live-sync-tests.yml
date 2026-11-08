@@ -6,6 +6,13 @@ on:
       - live-sync-realtime
     paths:
       - "live-sync/**"
+      - "sync/live-sync-client.js"
+      - "phone/live-sync-phone.js"
+      - "phone/live-sync-ui.js"
+      - "sync/live-sync-client.js"
+      - "phone/live-sync-phone.js"
+      - "phone/live-sync-ui.js"
+      - "phone/plan-a-phone.js"
       - ".github/workflows/live-sync-tests.yml"
   pull_request:
     paths:
@@ -22,4 +29,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - run: npm install
       - run: npm test
+      - name: Cloudflare Worker dry run
+        run: npx wrangler deploy --dry-run --outdir=dist
+      - name: Browser client syntax
+        working-directory: .
+        run: |
+          node --check sync/live-sync-client.js
+          node --check phone/live-sync-phone.js
+          node --check phone/live-sync-ui.js
+          node --check phone/plan-a-phone.js
