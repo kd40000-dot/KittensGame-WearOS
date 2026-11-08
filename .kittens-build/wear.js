@@ -1161,7 +1161,10 @@
  }
  async function initPlanACloud(){
   if(!planASync&&window.KittensPlanA){
-   planASync=KittensPlanA.create({deviceId:'watch',getSave:()=>getDraculaSave(),onEntry:()=>schedulePlanACloud()});
+   planASync=KittensPlanA.create({deviceId:'watch',getSave:()=>getDraculaSave(),onEntry:()=>{
+    try{if(window.KittensLiveSyncWear)KittensLiveSyncWear.scheduleCommit(180);}catch(e){}
+    schedulePlanACloud();
+   }});
    if(!planASync.getCheckpoint())await planASync.checkpoint(game.save());
   }
   if(planACloud)return true;
@@ -1174,11 +1177,18 @@
   });
   return true;
  }
+ function liveSyncActive(){
+  try{
+   const st=window.KittensLiveSyncWear&&KittensLiveSyncWear.getStatus?KittensLiveSyncWear.getStatus():null;
+   return !!(st&&st.config&&st.config.endpoint&&st.config.sessionId&&st.config.deviceToken);
+  }catch(e){return false;}
+ }
  function startPlanAPolling(){
   if(planAPollTimer)return;
-  planAPollTimer=setInterval(()=>{if(ready)planACloudSync(false).catch(()=>{});},10000);
+  planAPollTimer=setInterval(()=>{if(ready&&!liveSyncActive())planACloudSync(false).catch(()=>{});},10000);
  }
  function schedulePlanACloud(delay){
+  if(liveSyncActive())return;
   clearTimeout(planACloudTimer);
   planACloudTimer=setTimeout(()=>{planACloudSync(false).catch(e=>console.warn('Plan A auto sync failed',e));},delay==null?900:delay);
  }
