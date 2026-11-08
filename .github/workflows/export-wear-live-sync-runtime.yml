@@ -1,0 +1,31 @@
+name: Export Wear Live Sync Runtime
+
+on:
+  push:
+    branches:
+      - kittens-hud-ironwill-live-sync
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build final Wear runtime
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          cat sync/live-sync-client.js .kittens-build/wear.js .kittens-build/live-sync-wear.js > out/wear.js
+          node --check out/wear.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kittens-Wear-LiveSync-Runtime
+          path: out/wear.js
+          if-no-files-found: error
+          retention-days: 7
