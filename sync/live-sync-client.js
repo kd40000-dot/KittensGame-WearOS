@@ -25,6 +25,7 @@
     var reconnectTimer=0,heartbeatTimer=0,liveTimer=0,commitTimer=0,claimRetryTimer=0;
     var reconnectDelay=700,manualDisconnect=false,pendingClaim=false;
     var wantControl=false,firstWelcome=true,pendingHandoffTo=null;
+    var releaseAckWaiter=null;
 
     function emit(message,extra){
       var detail={
@@ -171,6 +172,55 @@
       if(role!=='owner')return;
       clearTimeout(commitTimer);
       commitTimer=setTimeout(function(){commitNow();},delay==null?250:delay);
+    }
+
+    function clearReleaseWaiter(error){
+      if(!releaseAckWaiter)return;
+      var waiter=releaseAckWaiter;
+      releaseAckWaiter=null;
+      clearTimeout(waiter.timer);
+      if(error)waiter.reject(error);
+    }
+
+    function releaseSaveText(saveText,timeoutMs){
+      if(!saveText)return Promise.reject(new Error('No save text was provided for release.'));
+      if(role!=='owner'||!connected||!authed){
+        return Promise.reject(new Error('This device does not currently own the connected Live Sync session.'));
+      }
+
+      wantControl=false;
+      pendingClaim=false;
+      pendingHandoffTo=null;
+      clearClaimRetry();
+      clearTimeout(commitTimer);commitTimer=0;
+      stopOwnerLoops();
+
+      if(releaseAckWaiter)clearReleaseWaiter(new Error('A newer release replaced the previous one.'));
+
+      role='releasing';
+      emit('Live Sync: publishing final state…');
+
+      return new Promise(function(resolve,reject){
+        var timer=setTimeout(function(){
+          if(!releaseAckWaiter)return;
+          releaseAckWaiter=null;
+          role='owner';
+          wantControl=true;
+          startOwnerLoops();
+          emit('Live Sync: final-state publish timed out.');
+          reject(new Error('Timed out waiting for Live Sync to acknowledge the final save.'));
+        },timeoutMs==null?8000:timeoutMs);
+
+        releaseAckWaiter={resolve:resolve,reject:reject,timer:timer};
+        if(!send({type:'release',saveText:saveText})){
+          clearTimeout(timer);
+          releaseAckWaiter=null;
+          role='owner';
+          wantControl=true;
+          startOwnerLoops();
+          reject(new Error('Live Sync socket is not ready to publish the final save.'));
+        }
+      });
     }
 
     async function release(){
@@ -342,7 +392,12 @@
         serverState.revision=Number(data.revision||0);
         serverState.ownerDeviceId=null;
         serverState.leaseUntil=0;
+        var waiter=releaseAckWaiter;
+        releaseAckWaiter=null;
+        if(waiter)clearTimeout(waiter.timer);
+        if(role==='releasing')role='mirror';
         emit('Live Sync: final state released at revision '+data.revision+'.');
+        if(waiter)waiter.resolve({ok:true,revision:Number(data.revision||0)});
         return;
       }
 
@@ -433,6 +488,7 @@
       wantControl=false;
       pendingClaim=false;
       pendingHandoffTo=null;
+      clearReleaseWaiter(new Error('Live Sync disconnected before the final save was acknowledged.'));
       clearTimeout(reconnectTimer);clearTimeout(commitTimer);clearClaimRetry();
       stopOwnerLoops();
       try{if(ws)ws.close();}catch(e){}
@@ -452,7 +508,7 @@
 
     return {
       connect:connect,disconnect:disconnect,claim:claim,forceClaim:forceClaim,release:release,
-      commitNow:commitNow,scheduleCommit:scheduleCommit,getConfig:getConfig,setConfig:setConfig,
+      releaseSaveText:releaseSaveText,commitNow:commitNow,scheduleCommit:scheduleCommit,getConfig:getConfig,setConfig:setConfig,
       clearConfig:clearConfig,getLastRevision:getLastRevision,getRole:function(){return role;},
       getServerState:function(){return serverState;},setLastRevision:setLastRevision
     };
