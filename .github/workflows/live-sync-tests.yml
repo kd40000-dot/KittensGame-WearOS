@@ -33,6 +33,12 @@ jobs:
       - run: npm test
       - name: Cloudflare Worker dry run
         run: npx wrangler deploy --dry-run --outdir=dist
+      - name: Verify deployed Live Sync endpoint
+        working-directory: .
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 https://kittens-live-sync.alike-fog.workers.dev/health | tee /tmp/live-health.json
+          grep -q '"ok":true' /tmp/live-health.json
       - name: Browser client syntax
         working-directory: .
         run: |
