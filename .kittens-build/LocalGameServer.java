@@ -415,7 +415,7 @@ final class LocalGameServer {
  }
  private void reply(Socket s,int status,String type,byte[] data)throws IOException{reply(s,status,type,data,Collections.emptyMap());}
  private void reply(Socket s,int status,String type,byte[] data,Map<String,String> extra)throws IOException{
-  OutputStream o=s.getOutputStream();String csp="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'self'";
+  OutputStream o=s.getOutputStream();String csp="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://kittens-live-sync.alike-fog.workers.dev wss://kittens-live-sync.alike-fog.workers.dev; img-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'self'";
   StringBuilder h=new StringBuilder("HTTP/1.1 ").append(status).append(" OK\r\nContent-Type: ").append(type).append("; charset=utf-8\r\nContent-Length: ").append(data.length).append("\r\nConnection: close\r\nCache-Control: no-store\r\nContent-Security-Policy: ").append(csp);
   for(Map.Entry<String,String> e:extra.entrySet())h.append("\r\n").append(e.getKey()).append(": ").append(e.getValue());
   h.append("\r\n\r\n");
