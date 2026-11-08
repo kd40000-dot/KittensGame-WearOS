@@ -203,6 +203,7 @@
         serverState=serverState||{};
         serverState.ownerDeviceId=data.ownerDeviceId||null;
         serverState.revision=Number(data.revision||serverState.revision||0);
+        if(data.revision)setLastRevision(data.revision);
         stopOwnerLoops();
         setRole('mirror','Live Sync: control moved to '+(data.ownerDeviceId||'the other device')+'.');
         return;
@@ -239,6 +240,16 @@
         var wait=Math.max(250,Number(data.leaseUntil||0)-Date.now()+100);
         clearTimeout(reconnectTimer);
         reconnectTimer=setTimeout(claim,Math.min(wait,16000));
+        return;
+      }
+
+      if(data.type==='release-ack'){
+        setLastRevision(data.revision);
+        serverState=serverState||{};
+        serverState.revision=Number(data.revision||0);
+        serverState.ownerDeviceId=null;
+        serverState.leaseUntil=0;
+        emit('Live Sync: final state released at revision '+data.revision+'.');
         return;
       }
 
@@ -337,7 +348,7 @@
       connect:connect,disconnect:disconnect,claim:claim,forceClaim:forceClaim,release:release,
       commitNow:commitNow,scheduleCommit:scheduleCommit,getConfig:getConfig,setConfig:setConfig,
       clearConfig:clearConfig,getLastRevision:getLastRevision,getRole:function(){return role;},
-      getServerState:function(){return serverState;}
+      getServerState:function(){return serverState;},setLastRevision:setLastRevision
     };
   }
 
