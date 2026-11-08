@@ -1,7 +1,7 @@
 (function(global){
   'use strict';
 
-  var DEFAULT_ENDPOINT='';
+  var DEFAULT_ENDPOINT='https://kittens-live-sync.alike-fog.workers.dev';
   var client=null,overlay=null,lastMirrorRender=0;
   var statusEl=null,endpointInput=null,codeInput=null;
 
@@ -148,6 +148,7 @@
     endpointInput.value=(ensureClient().getConfig().endpoint||DEFAULT_ENDPOINT||'');
     endpointInput.style.cssText='width:100%;box-sizing:border-box;margin:5px 0;padding:8px;font-size:11px;';
     panel.appendChild(endpointInput);
+    if(DEFAULT_ENDPOINT){endpointInput.style.display='none';}
 
     codeInput=document.createElement('input');
     codeInput.type='text';codeInput.inputMode='numeric';codeInput.maxLength=6;codeInput.placeholder='6-digit pairing code';
