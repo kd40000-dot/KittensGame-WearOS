@@ -1,8 +1,15 @@
+import { DurableObject } from "cloudflare:workers";
 import { LEASE_MS, canTakeOwnership, nextRevision, liveEnvelope, publicState } from "./session-state.js";
+
+const CORS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
+  "access-control-allow-headers": "authorization,content-type,x-device-id,x-device-token"
+};
 
 const json = (value, status = 200, headers = {}) => new Response(JSON.stringify(value), {
   status,
-  headers: { "content-type": "application/json; charset=utf-8", ...headers }
+  headers: { "content-type": "application/json; charset=utf-8", ...CORS, ...headers }
 });
 
 async function sha256(text) {
@@ -35,6 +42,7 @@ function bearer(request) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     if (url.pathname === "/health") {
       return json({ ok: true, service: "kittens-live-sync", version: 1 });
     }
@@ -74,9 +82,11 @@ export default {
   }
 };
 
-export class PairRegistry {
-  constructor(ctx) {
+export class PairRegistry extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
     this.ctx = ctx;
+    this.env = env;
   }
 
   async fetch(request) {
@@ -110,8 +120,9 @@ export class PairRegistry {
   }
 }
 
-export class KittensSession {
+export class KittensSession extends DurableObject {
   constructor(ctx, env) {
+    super(ctx, env);
     this.ctx = ctx;
     this.env = env;
   }
