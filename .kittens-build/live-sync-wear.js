@@ -1,10 +1,13 @@
 (function(global){
   'use strict';
 
+  var SAVE_KEY='com.nuclearunicorn.kittengame.savedata';
+  var PENDING_RESET_KEY='com.nuclearunicorn.kittengame.liveSync.watch.pendingReset';
   var DEFAULT_ENDPOINT='https://kittens-live-sync.alike-fog.workers.dev';
   var client=null,overlay=null,lastMirrorRender=0;
   var statusEl=null,endpointInput=null,codeInput=null;
   var lastNativeComplicationSnapshot=null;
+  var resetPublishing=false;
 
   function esc(v){return String(v==null?'':v);}
 
@@ -25,7 +28,8 @@
   function applySaveText(text){
     return new Promise(function(resolve,reject){
       try{
-        var key='com.nuclearunicorn.kittengame.savedata';
+        if(localStorage.getItem(PENDING_RESET_KEY)){resolve();return;}
+        var key=SAVE_KEY;
         var backup='com.nuclearunicorn.kittengame.liveSync.backup';
         var previous=LCstorage[key];
         if(previous)LCstorage[backup]=previous;
@@ -178,6 +182,72 @@
     }catch(e){}
   }
 
+  function pendingResetText(){
+    return localStorage.getItem(PENDING_RESET_KEY)||'';
+  }
+
+  function publishPendingReset(){
+    if(resetPublishing||!client)return;
+    var resetText=pendingResetText();
+    if(!resetText)return;
+    if(client.getRole()!=='owner'){
+      setStatus('Reset prepared · waiting for Live Sync control…');
+      client.claim();
+      return;
+    }
+
+    resetPublishing=true;
+    setStatus('Publishing reset to Live Sync…');
+    client.releaseSaveText(resetText,10000).then(function(){
+      resetPublishing=false;
+      try{LCstorage[SAVE_KEY]=resetText;}catch(e){}
+      localStorage.removeItem(PENDING_RESET_KEY);
+      try{pushNativeComplicationSnapshot(getResources(),Date.now(),true);}catch(e){}
+      setStatus('Reset synchronized. Reloading…');
+      window.location.reload();
+    }).catch(function(e){
+      resetPublishing=false;
+      try{LCstorage[SAVE_KEY]=resetText;}catch(ignore){}
+      setStatus('Reset prepared · retrying Live Sync…');
+      console.warn('Live Sync reset publish failed',e);
+      setTimeout(function(){
+        if(!client)return;
+        if(client.getRole()==='owner')publishPendingReset();
+        else client.claim();
+      },900);
+    });
+  }
+
+  function installResetBridge(){
+    if(!global.game||game.__liveSyncResetPatched)return;
+    var originalResetAutomatic=game.resetAutomatic;
+    if(typeof originalResetAutomatic!=='function'||typeof game._resetInternal!=='function')return;
+
+    game.resetAutomatic=function(){
+      var cfg=client&&client.getConfig?client.getConfig():{};
+      if(!client||!cfg.endpoint||!cfg.sessionId||!cfg.deviceToken){
+        return originalResetAutomatic.apply(this,arguments);
+      }
+
+      var self=this;
+      this.timer.scheduleEvent(dojo.hitch(this,function(){
+        try{
+          self._resetInternal();
+          self.mobileSaveOnPause=false;
+          var resetText=LCstorage[SAVE_KEY];
+          if(!resetText)throw new Error('Kittens Game did not produce a post-reset save.');
+          localStorage.setItem(PENDING_RESET_KEY,resetText);
+          setStatus('Reset prepared · synchronizing…');
+          publishPendingReset();
+        }catch(e){
+          setStatus('Reset failed: '+e.message);
+          console.error('Live Sync reset bridge failed',e);
+        }
+      }));
+    };
+    game.__liveSyncResetPatched=true;
+  }
+
   function ensureClient(){
     if(client)return client;
     if(!global.KittensLiveSync)throw new Error('Live Sync client is not loaded.');
@@ -188,7 +258,10 @@
       getResources:getResources,
       applyLiveResources:applyLiveResources,
       setWritable:setWritable,
-      onStatus:function(st){setStatus(st.message||('Live Sync: '+st.role));}
+      onStatus:function(st){
+        setStatus(st.message||('Live Sync: '+st.role));
+        if(st.role==='owner'&&pendingResetText())setTimeout(publishPendingReset,0);
+      }
     });
     return client;
   }
@@ -259,7 +332,7 @@
 
   function init(){
     if(!global.game||!game.resPool||!document.getElementById('wearSettings'))return false;
-    ensureClient();buildUi();
+    ensureClient();installResetBridge();buildUi();
     return true;
   }
 
