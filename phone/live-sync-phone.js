@@ -2,6 +2,7 @@
   'use strict';
 
   var SETUP_KEY='com.nuclearunicorn.kittengame.liveSync.phoneSetup';
+  var DEFAULT_ENDPOINT='https://kittens-live-sync.alike-fog.workers.dev';
   var client=null;
   var status={configured:false,role:'offline',message:'Live Sync is not configured.',pairCode:null,pairExpiresAt:0};
   var overlay=null,lastMirrorRender=0;
@@ -207,7 +208,7 @@
   function forceControl(){ensureClient();return client.forceClaim();}
   function scheduleCommit(delay){if(client)client.scheduleCommit(delay);}
   function commitNow(){return client?client.commitNow():Promise.resolve({ok:false,type:'not-ready'});}
-  function getEndpoint(){var cfg=client?client.getConfig():{};return cfg.endpoint||readSetup().endpoint||'';}
+  function getEndpoint(){var cfg=client?client.getConfig():{};return cfg.endpoint||readSetup().endpoint||DEFAULT_ENDPOINT||'';}
   function disable(){
     if(client){client.clearConfig();client=null;}
     removeOverlay();status={configured:false,role:'offline',message:'Live Sync disabled; GitHub fallback remains available.',pairCode:null,pairExpiresAt:0};
