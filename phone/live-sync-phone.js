@@ -182,6 +182,7 @@
     });
     writeSetup(setup);
     client.setConfig({endpoint:endpoint,sessionId:result.sessionId,deviceToken:result.deviceToken});
+    if(result.state&&result.state.revision)client.setLastRevision(result.state.revision);
     status.configured=true;
     client.connect();
     setTimeout(function(){client.claim();},250);
