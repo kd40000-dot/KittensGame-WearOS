@@ -370,7 +370,8 @@ export class KittensSession extends DurableObject {
         if (data.saveText) meta = nextRevision(meta, deviceId, data.saveText);
         meta = { ...meta, ownerDeviceId: null, leaseUntil: 0, updatedAt: Date.now() };
         await this.putMeta(meta);
-        this.broadcast({ type: "owner-changed", ownerDeviceId: null, revision: meta.revision });
+        this.send(ws, { type: "release-ack", revision: meta.revision });
+        this.broadcast({ type: "owner-changed", ownerDeviceId: null, revision: meta.revision }, ws);
       }
       return;
     }
