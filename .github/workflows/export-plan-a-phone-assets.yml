@@ -1,9 +1,10 @@
-name: Export Plan A Phone Assets
+name: Export Phone Sync Assets
 
 on:
   push:
     branches:
       - plan-a-github-sync
+      - live-sync-realtime
 
 permissions:
   contents: read
@@ -22,12 +23,15 @@ jobs:
           cp sync/plan-a-orchestrator.js out/sync/
           cp sync/github-mailbox.js out/sync/
           cp sync/plan-a-cloud.js out/sync/
+          cp sync/live-sync-client.js out/sync/
           cp phone/plan-a-phone.js out/phone/
           cp phone/plan-a-ui.js out/phone/
+          cp phone/live-sync-phone.js out/phone/
+          cp phone/live-sync-ui.js out/phone/
           cp phone/patch-mobile-options-iwguard.py out/phone/
       - uses: actions/upload-artifact@v4
         with:
-          name: Kittens-PlanA-Phone-Assets
+          name: Kittens-Phone-Sync-Assets
           path: out
           if-no-files-found: error
           retention-days: 7
