@@ -263,7 +263,10 @@
     planA=KittensPlanA.create({
       deviceId:'phone',
       getSave:function(){return getDraculaSave();},
-      onEntry:function(){scheduleAutoSync();}
+      onEntry:function(){
+        try{if(global.KittensLiveSyncPhone)KittensLiveSyncPhone.scheduleCommit(180);}catch(e){}
+        scheduleAutoSync();
+      }
     });
     planA.attach();
     if(!planA.getCheckpoint())planA.checkpoint(game.save());
@@ -386,7 +389,13 @@
         if(syncAgain){syncAgain=false;scheduleAutoSync(400);}
       });
   }
+  function liveSyncActive(){
+    try{
+      return !!(global.KittensLiveSyncPhone&&KittensLiveSyncPhone.getStatus&&KittensLiveSyncPhone.getStatus().configured);
+    }catch(e){return false;}
+  }
   function scheduleAutoSync(delay){
+    if(liveSyncActive())return;
     if(!getToken())return;
     clearTimeout(syncTimer);
     syncTimer=setTimeout(function(){syncNow().catch(function(){});},delay==null?800:delay);
@@ -434,6 +443,7 @@
     if(pollTimer)return;
     pollTimer=setInterval(function(){
       try{
+        if(liveSyncActive())return;
         if(!cloud||!getToken())return;
         var st=cloud.loadState();
         if(!st||!st.baseRevision)return;
