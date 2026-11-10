@@ -18,6 +18,8 @@ public class ComplicationLiveSyncService extends Service {
  private int generation=0;
  private long reconnectDelay=1000;
  private boolean stopping=false;
+ private boolean observerAwareServer=false;
+ private boolean pausedForWatchOwnership=false;
 
  @Override public void onCreate(){
   super.onCreate();
@@ -27,12 +29,12 @@ public class ComplicationLiveSyncService extends Service {
 
  @Override public int onStartCommand(Intent intent,int flags,int startId){
   stopping=false;
-  connect();
+  if(!pausedForWatchOwnership)connect();
   return START_STICKY;
  }
 
  @Override public void onDestroy(){
-  stopping=true;generation++;
+  stopping=true;pausedForWatchOwnership=false;generation++;
   handler.removeCallbacksAndMessages(null);
   try{if(socket!=null)socket.close();}catch(Throwable ignored){}
   socket=null;
@@ -102,11 +104,25 @@ public class ComplicationLiveSyncService extends Service {
       String type=data.optString("type","");
       if("live".equals(type)){
        ComplicationLiveSync.acceptLiveEnvelope(ComplicationLiveSyncService.this,data,true);
-      }else if("welcome".equals(type)||"observer-heartbeat-ack".equals(type)){
+      }else if("welcome".equals(type)){
+       observerAwareServer=data.optBoolean("observer",false);
+       JSONObject state=data.optJSONObject("state");
+       String owner=state==null?"":state.optString("ownerDeviceId","");
+       if(!observerAwareServer&&"watch".equals(owner)){
+        pauseForWatchOwnership(myGeneration);
+        return;
+       }
        JSONObject live=data.optJSONObject("live");
        if(live!=null)ComplicationLiveSync.acceptLiveEnvelope(ComplicationLiveSyncService.this,live,true);
-      }else if("owner-changed".equals(type)&&data.isNull("ownerDeviceId")){
-       ComplicationStore.freezeAtCurrentValues(ComplicationLiveSyncService.this);
+      }else if("observer-heartbeat-ack".equals(type)){
+       JSONObject live=data.optJSONObject("live");
+       if(live!=null)ComplicationLiveSync.acceptLiveEnvelope(ComplicationLiveSyncService.this,live,true);
+      }else if("owner-changed".equals(type)){
+       String owner=data.isNull("ownerDeviceId")?"":data.optString("ownerDeviceId","");
+       if(!observerAwareServer&&"watch".equals(owner)){
+        pauseForWatchOwnership(myGeneration);
+        return;
+       }
       }else if("auth-failed".equals(type)){
        updateNotification("Kittens complication sync needs re-pairing");
       }
@@ -129,6 +145,21 @@ public class ComplicationLiveSyncService extends Service {
   }catch(Throwable e){
    scheduleReconnect(myGeneration);
   }
+ }
+
+ private void pauseForWatchOwnership(int myGeneration){
+  if(stopping||myGeneration!=generation)return;
+  pausedForWatchOwnership=true;
+  generation++;
+  updateNotification("Kittens complications: watch game is active");
+  try{if(socket!=null)socket.close();}catch(Throwable ignored){}
+  socket=null;
+  ComplicationLiveSync.waitUntilWatchIsNotOwner(this,()->{
+   if(stopping)return;
+   pausedForWatchOwnership=false;
+   reconnectDelay=1000;
+   connect();
+  });
  }
 
  private void scheduleHeartbeat(int myGeneration){
