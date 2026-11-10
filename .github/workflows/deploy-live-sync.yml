@@ -2,6 +2,9 @@ name: Deploy Kittens Live Sync
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - live-sync-realtime
 
 jobs:
   deploy:
