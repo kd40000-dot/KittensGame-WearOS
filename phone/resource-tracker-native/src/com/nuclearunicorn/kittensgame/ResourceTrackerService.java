@@ -144,6 +144,7 @@ public class ResourceTrackerService extends Service {
          .setShowWhen(false)
          .setCategory(Notification.CATEGORY_PROGRESS)
          .setVisibility(Notification.VISIBILITY_PUBLIC)
+         .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
          .setColor(full ? DRACULA_GREEN : DRACULA_PURPLE);
 
         if (content != null) b.setContentIntent(content);
@@ -188,6 +189,38 @@ public class ResourceTrackerService extends Service {
             } catch (Throwable ignored) {}
         }
         return built;
+    }
+
+    static boolean isActiveNotificationPresent(Context c) {
+        try {
+            NotificationManager nm=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
+            if(nm==null)return false;
+            for(android.service.notification.StatusBarNotification sbn:nm.getActiveNotifications()){
+                if(sbn.getId()==NOTIFICATION_ID)return true;
+            }
+        } catch(Throwable ignored){}
+        return false;
+    }
+
+    static boolean isActiveNotificationPromoted(Context c) {
+        try {
+            NotificationManager nm=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
+            if(nm==null)return false;
+            for(android.service.notification.StatusBarNotification sbn:nm.getActiveNotifications()){
+                if(sbn.getId()==NOTIFICATION_ID){
+                    return (sbn.getNotification().flags & 0x00040000)!=0;
+                }
+            }
+        } catch(Throwable ignored){}
+        return false;
+    }
+
+    static int channelImportance(Context c) {
+        try {
+            NotificationManager nm=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
+            NotificationChannel ch=nm==null?null:nm.getNotificationChannel(CHANNEL);
+            return ch==null?-1:ch.getImportance();
+        } catch(Throwable ignored){return -1;}
     }
 
     private void createChannel() {
