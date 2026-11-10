@@ -61,6 +61,9 @@ jobs:
           cp .kittens-build/ComplicationConfigActivity.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/ComplicationConfigActivity.java
           cp .kittens-build/ResourceFullReceiver.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/ResourceFullReceiver.java
           cp .kittens-build/LocalGameServer.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/LocalGameServer.java
+          cp .kittens-build/ComplicationLiveSync.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/ComplicationLiveSync.java
+          cp .kittens-build/ComplicationLiveSyncService.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/ComplicationLiveSyncService.java
+          cp .kittens-build/LiveSyncBootReceiver.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/LiveSyncBootReceiver.java
           cp .kittens-build/MainActivity.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/MainActivity.java
           cp .kittens-build/AndroidManifest.xml wear-kittens/app/src/main/AndroidManifest.xml
           cp .kittens-build/app-build.gradle wear-kittens/app/build.gradle
