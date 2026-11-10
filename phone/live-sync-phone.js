@@ -87,6 +87,7 @@
       .map(function(r){
         return {
           name:r.name,
+          title:r.title||r.name,
           value:Number(r.value)||0,
           max:Number(r.maxValue)||0,
           rate:game.isPaused?0:((Number(game.getResourcePerTick(r.name,true))||0)*(Number(game.ticksPerSecond)||0))
@@ -275,6 +276,7 @@
   function takeControl(){ensureClient();return client.claim();}
   function forceControl(){ensureClient();return client.forceClaim();}
   function scheduleCommit(delay){if(client)client.scheduleCommit(delay);}
+  function pushLiveNow(){return client?client.pushLiveNow():false;}
   function commitNow(){return client?client.commitNow():Promise.resolve({ok:false,type:'not-ready'});}
   function getEndpoint(){var cfg=client?client.getConfig():{};return cfg.endpoint||readSetup().endpoint||DEFAULT_ENDPOINT||'';}
   function disable(){
@@ -285,7 +287,7 @@
 
   global.KittensLiveSyncPhone={
     init:init,initialize:initialize,createWatchPairCode:createWatchPairCode,takeControl:takeControl,
-    forceControl:forceControl,scheduleCommit:scheduleCommit,commitNow:commitNow,getStatus:getStatus,
+    forceControl:forceControl,scheduleCommit:scheduleCommit,pushLiveNow:pushLiveNow,commitNow:commitNow,getStatus:getStatus,
     getEndpoint:getEndpoint,disable:disable
   };
 
