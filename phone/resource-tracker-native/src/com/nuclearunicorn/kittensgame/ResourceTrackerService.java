@@ -9,7 +9,7 @@ import java.util.Locale;
 
 public class ResourceTrackerService extends Service {
     static final String PREFS = "kittens_resource_tracker";
-    static final String CHANNEL = "kittens_resource_tracker_live";
+    static final String CHANNEL = "kittens_resource_tracker_live_v2";
     static final int NOTIFICATION_ID = 41617;
     static final int DRACULA_PURPLE = Color.rgb(189, 147, 249);
     static final int DRACULA_GREEN = Color.rgb(80, 250, 123);
@@ -148,36 +148,53 @@ public class ResourceTrackerService extends Service {
 
         if (content != null) b.setContentIntent(content);
 
-        if (max > 0) {
-            int progress = (int)Math.round(Math.max(0.0, Math.min(1.0, value / max)) * 1000.0);
-            b.setProgress(1000, progress, false);
-        } else {
-            b.setProgress(0, 0, true);
-        }
+        int progress = max > 0
+            ? (int)Math.round(Math.max(0.0, Math.min(1.0, value / max)) * 1000.0)
+            : 0;
+
+        if (max > 0) b.setProgress(1000, progress, false);
+        else b.setProgress(0, 0, true);
 
         if (Build.VERSION.SDK_INT >= 36) {
+            // Use the Android 16 progress-centric template used for Live Updates.
             try {
-                Method m = Notification.Builder.class.getMethod("setShortCriticalText", String.class);
-                m.invoke(b, chip);
-            } catch (Throwable ignored) {
+                Notification.ProgressStyle ps = new Notification.ProgressStyle()
+                    .setStyledByProgress(true)
+                    .setProgress(progress);
+                b.setStyle(ps);
+            } catch (Throwable ignored) {}
+
+            try { b.setShortCriticalText(chip); }
+            catch (Throwable ignored) {
                 try { b.getExtras().putString("android.shortCriticalText", chip); } catch (Throwable ignored2) {}
             }
+
+            // The request API arrived in Android 16's promoted-notification update.
+            // Set the public extra unconditionally as the compatibility path, then
+            // use the direct builder method when it exists on this framework.
+            try { b.getExtras().putBoolean("android.requestPromotedOngoing", true); } catch (Throwable ignored) {}
             try {
                 Method m = Notification.Builder.class.getMethod("setRequestPromotedOngoing", boolean.class);
                 m.invoke(b, true);
-            } catch (Throwable ignored) {
-                try { b.getExtras().putBoolean("android.requestPromotedOngoing", true); } catch (Throwable ignored2) {}
-            }
+            } catch (Throwable ignored) {}
         }
 
-        return b.build();
+        Notification built=b.build();
+        if (Build.VERSION.SDK_INT >= 36) {
+            try {
+                getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                    .putBoolean("last_promotable", built.hasPromotableCharacteristics())
+                    .apply();
+            } catch (Throwable ignored) {}
+        }
+        return built;
     }
 
     private void createChannel() {
         if (Build.VERSION.SDK_INT < 26) return;
         NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
-        NotificationChannel ch = new NotificationChannel(CHANNEL, "Kittens resource tracker", NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel ch = new NotificationChannel(CHANNEL, "Kittens resource tracker", NotificationManager.IMPORTANCE_DEFAULT);
         ch.setDescription("Shows a selected Kittens Game resource as a live status-bar update.");
         ch.setSound(null, null);
         ch.enableVibration(false);
