@@ -8,6 +8,7 @@ import android.net.Uri;
 
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.PluginMethod;
 
@@ -27,6 +28,9 @@ public class ResourceTrackerPlugin extends Plugin {
                 number(call, "rate")
             );
             ResourceTrackerService.start(c);
+            if (Build.VERSION.SDK_INT >= 36 && !canPostPromoted(c)) {
+                openPromotedSettings(c);
+            }
             call.resolve();
         } catch (Throwable e) {
             call.reject("Could not start resource tracker: " + e.getMessage());
@@ -68,22 +72,52 @@ public class ResourceTrackerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void status(PluginCall call) {
+        try {
+            Context c=getContext();
+            JSObject out=new JSObject();
+            out.put("enabled", ResourceTrackerService.isEnabled(c));
+            out.put("sdk", Build.VERSION.SDK_INT);
+            out.put("canPostPromoted", Build.VERSION.SDK_INT < 36 || canPostPromoted(c));
+            out.put("lastPromotable", c.getSharedPreferences(ResourceTrackerService.PREFS, Context.MODE_PRIVATE).getBoolean("last_promotable", false));
+            call.resolve(out);
+        } catch (Throwable e) {
+            call.reject("Could not read resource tracker status: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void openLiveUpdateSettings(PluginCall call) {
         try {
-            if (Build.VERSION.SDK_INT >= 36) {
-                Intent i = new Intent("android.settings.MANAGE_APP_PROMOTED_NOTIFICATIONS");
-                i.setData(Uri.parse("package:" + getContext().getPackageName()));
-                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(i);
-            } else {
-                Intent i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
-                i.putExtra(Settings.EXTRA_APP_PACKAGE, getContext().getPackageName());
-                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(i);
-            }
+            openPromotedSettings(getContext());
             call.resolve();
         } catch (Throwable e) {
             call.reject("Could not open notification settings: " + e.getMessage());
+        }
+    }
+
+    private static boolean canPostPromoted(Context c) {
+        try {
+            Object nm=c.getSystemService(Context.NOTIFICATION_SERVICE);
+            java.lang.reflect.Method m=nm.getClass().getMethod("canPostPromotedNotifications");
+            Object result=m.invoke(nm);
+            return result instanceof Boolean && (Boolean)result;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    private static void openPromotedSettings(Context c) {
+        if (Build.VERSION.SDK_INT >= 36) {
+            Intent i = new Intent("android.settings.MANAGE_APP_PROMOTED_NOTIFICATIONS");
+            i.setData(Uri.parse("package:" + c.getPackageName()));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            c.startActivity(i);
+        } else {
+            Intent i = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+            i.putExtra(Settings.EXTRA_APP_PACKAGE, c.getPackageName());
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            c.startActivity(i);
         }
     }
 
