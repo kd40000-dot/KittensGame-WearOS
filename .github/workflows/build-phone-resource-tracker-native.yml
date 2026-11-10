@@ -1,0 +1,68 @@
+name: Build Phone Resource Tracker Native Patch
+
+on:
+  push:
+    branches:
+      - live-sync-realtime
+    paths:
+      - 'phone/resource-tracker-native/**'
+      - '.github/workflows/build-phone-resource-tracker-native.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$HOME/android-sdk"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdline-tools.zip
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/android-cmdline
+          mv /tmp/android-cmdline/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+
+      - name: Compile plugin and service
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/phone/resource-tracker-native"
+          ANDROID_JAR="$ANDROID_HOME/platforms/android-36/android.jar"
+          mkdir -p /tmp/tracker/stub-classes /tmp/tracker/classes /tmp/tracker/dex
+
+          find "$ROOT/stubs" -name '*.java' -print > /tmp/tracker/stubs.txt
+          javac -source 17 -target 17 -cp "$ANDROID_JAR" -d /tmp/tracker/stub-classes @/tmp/tracker/stubs.txt
+          jar cf /tmp/tracker/capacitor-stubs.jar -C /tmp/tracker/stub-classes .
+
+          find "$ROOT/src" -name '*.java' -print > /tmp/tracker/src.txt
+          javac -source 17 -target 17 -cp "$ANDROID_JAR:/tmp/tracker/capacitor-stubs.jar" -d /tmp/tracker/classes @/tmp/tracker/src.txt
+
+          "$ANDROID_HOME/build-tools/35.0.0/d8"             --min-api 24             --lib "$ANDROID_JAR"             --lib /tmp/tracker/capacitor-stubs.jar             --output /tmp/tracker/dex             $(find /tmp/tracker/classes -name '*.class' -print)
+
+          cp /tmp/tracker/dex/classes.dex "$GITHUB_WORKSPACE/phone-resource-tracker-classes3.dex"
+          unzip -l "$GITHUB_WORKSPACE/phone-resource-tracker-classes3.dex" >/dev/null 2>&1 || true
+          ls -lh "$GITHUB_WORKSPACE/phone-resource-tracker-classes3.dex"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phone-resource-tracker-native-dex
+          path: phone-resource-tracker-classes3.dex
+          if-no-files-found: error
+          retention-days: 7
