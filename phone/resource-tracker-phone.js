@@ -59,7 +59,8 @@
 
   function call(method,args){
     var p=nativePlugin();
-    if(!p||typeof p[method]!=='function')return Promise.reject(new Error('Native resource tracker is not available.'));
+    if(!p)return Promise.reject(new Error('KittensResourceTracker is not registered in the installed Android APK. Check the bundled tracker DEX and assets/capacitor.plugins.json.'));
+    if(typeof p[method]!=='function')return Promise.reject(new Error('Native KittensResourceTracker method "'+method+'" is unavailable. The APK may contain an older native tracker DEX.'));
     try{return Promise.resolve(p[method](args||{}));}
     catch(e){return Promise.reject(e);}
   }
@@ -67,13 +68,13 @@
   function start(name){
     name=String(name||'');
     if(!name)return stop();
-    saveSelected(name);
     var data=snapshot(name);
     if(!data)return Promise.reject(new Error('Resource is not available yet.'));
     return new Promise(function(resolve,reject){
       requestNotificationPermission(function(granted){
         if(!granted){reject(new Error('Notification permission was not granted.'));return;}
         call('start',data).then(function(){
+          saveSelected(name);
           lastSignature='';
           sync(true);
           resolve();
@@ -130,7 +131,24 @@
   }
 
   function status(){
-    return call('status',{}).catch(function(){return {enabled:false,error:true};});
+    return call('status',{}).then(function(result){
+      var out=result||{};
+      out.error=false;
+      out.bridgePresent=!!global.Capacitor;
+      out.pluginPresent=!!nativePlugin();
+      return out;
+    }).catch(function(err){
+      var message=err&&err.message?err.message:String(err||'Unknown native bridge error');
+      console.warn('Kittens resource tracker native status failed:',message);
+      return {
+        enabled:false,
+        error:true,
+        errorMessage:message,
+        bridgePresent:!!global.Capacitor,
+        pluginPresent:!!nativePlugin(),
+        statusMethodPresent:!!(nativePlugin()&&typeof nativePlugin().status==='function')
+      };
+    });
   }
 
   function openSettings(){
