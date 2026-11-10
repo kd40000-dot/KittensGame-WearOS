@@ -20,6 +20,7 @@ final class ComplicationLiveSync {
  private static final String KEY_SESSION="session";
  private static final String KEY_TOKEN="token";
  private static final String KEY_LAST_PANEL_UPDATE="last_panel_update";
+ private static final String KEY_LAST_LIVE_RECEIVED="last_live_received";
  private static final ExecutorService IO=Executors.newSingleThreadExecutor();
 
  static final class Config {
@@ -85,6 +86,11 @@ final class ComplicationLiveSync {
 
  static void refreshAsync(Context c,Runnable done){
   Context app=c.getApplicationContext();
+  long age=System.currentTimeMillis()-prefs(app).getLong(KEY_LAST_LIVE_RECEIVED,0);
+  if(age>=0&&age<2500){
+   if(done!=null)new Handler(Looper.getMainLooper()).post(done);
+   return;
+  }
   IO.execute(()->{
    try{refreshBlocking(app);}catch(Throwable ignored){}
    if(done!=null)new Handler(Looper.getMainLooper()).post(done);
@@ -148,6 +154,7 @@ final class ComplicationLiveSync {
    JSONObject root=new JSONObject();
    root.put("resources",normalized);
    boolean meaningful=ComplicationStore.saveSnapshot(c,root.toString(),false);
+   prefs(c).edit().putLong(KEY_LAST_LIVE_RECEIVED,now).apply();
 
    if(pushUpdates){
     if(meaningful){
