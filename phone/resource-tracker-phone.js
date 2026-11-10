@@ -5,11 +5,11 @@
   var timer=0;
   var lastSignature='';
 
-  function nativePlugin(){
-    try{
-      return global.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.KittensResourceTracker
-        ?Capacitor.Plugins.KittensResourceTracker:null;
-    }catch(e){return null;}
+  // Capacitor's generated Plugins registry can omit methods in APKs patched
+  // after the Android project was originally built. nativePromise dispatches
+  // directly to the native plugin (by class/method name), bypassing that proxy.
+  function nativeReady(){
+    return !!(global.Capacitor&&typeof global.Capacitor.nativePromise==='function');
   }
 
   function selected(){
@@ -29,7 +29,9 @@
     if(!r)return null;
     var rate=0;
     try{
-      rate=game.isPaused?0:((Number(game.getResourcePerTick(r.name,true))||0)*(Number(game.ticksPerSecond)||0));
+      // game.isPaused becomes true on ordinary Android Activity backgrounding.
+      // Offline production continues while the WebView sleeps, so retain rate.
+      rate=(Number(game.getResourcePerTick(r.name,true))||0)*(Number(game.ticksPerSecond)||0);
     }catch(e){}
     return {
       name:r.name,
@@ -58,11 +60,12 @@
   }
 
   function call(method,args){
-    var p=nativePlugin();
-    if(!p)return Promise.reject(new Error('KittensResourceTracker is not registered in the installed Android APK. Check the bundled tracker DEX and assets/capacitor.plugins.json.'));
-    if(typeof p[method]!=='function')return Promise.reject(new Error('Native KittensResourceTracker method "'+method+'" is unavailable. The APK may contain an older native tracker DEX.'));
-    try{return Promise.resolve(p[method](args||{}));}
-    catch(e){return Promise.reject(e);}
+    if(!nativeReady()){
+      return Promise.reject(new Error('Capacitor Android bridge is unavailable; cannot '+method+' resource tracker.'));
+    }
+    try{
+      return Promise.resolve(global.Capacitor.nativePromise('KittensResourceTracker',method,args||{}));
+    }catch(e){return Promise.reject(e);}
   }
 
   function start(name){
@@ -102,7 +105,7 @@
     ].join('|');
     if(!force&&sig===lastSignature)return;
     lastSignature=sig;
-    call('update',data).catch(function(){});
+    call('update',data).catch(function(err){console.warn('Kittens resource tracker update failed:',err&&err.message||String(err));});
   }
 
   function items(){
@@ -134,8 +137,8 @@
     return call('status',{}).then(function(result){
       var out=result||{};
       out.error=false;
-      out.bridgePresent=!!global.Capacitor;
-      out.pluginPresent=!!nativePlugin();
+      out.bridgePresent=nativeReady();
+      out.pluginPresent=true;
       return out;
     }).catch(function(err){
       var message=err&&err.message?err.message:String(err||'Unknown native bridge error');
@@ -144,9 +147,9 @@
         enabled:false,
         error:true,
         errorMessage:message,
-        bridgePresent:!!global.Capacitor,
-        pluginPresent:!!nativePlugin(),
-        statusMethodPresent:!!(nativePlugin()&&typeof nativePlugin().status==='function')
+        bridgePresent:nativeReady(),
+        pluginPresent:null,
+        statusMethodPresent:null
       };
     });
   }
@@ -166,7 +169,7 @@
     setTimeout(function(){
       var name=selected();
       if(name&&snapshot(name)){
-        call('start',snapshot(name)).catch(function(){});
+        call('start',snapshot(name)).catch(function(err){console.warn('Kittens resource tracker restore failed:',err&&err.message||String(err));});
       }
     },1200);
   }
@@ -184,7 +187,7 @@
 
   (function autoInit(){
     try{
-      if(global.game&&game.resPool&&nativePlugin()){init();return;}
+      if(global.game&&game.resPool&&nativeReady()){init();return;}
     }catch(e){}
     setTimeout(autoInit,250);
   })();
