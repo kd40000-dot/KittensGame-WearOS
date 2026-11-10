@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - plan-a-github-sync
+      - live-sync-realtime
 
 permissions:
   contents: read
@@ -35,4 +36,4 @@ jobs:
           name: Android-APK-Tools-35
           path: out
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
