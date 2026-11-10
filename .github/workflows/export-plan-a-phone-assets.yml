@@ -28,6 +28,7 @@ jobs:
           cp phone/plan-a-ui.js out/phone/
           cp phone/live-sync-phone.js out/phone/
           cp phone/live-sync-ui.js out/phone/
+          cp phone/resource-tracker-phone.js out/phone/
           cp phone/patch-mobile-options-iwguard.py out/phone/
       - uses: actions/upload-artifact@v4
         with:
