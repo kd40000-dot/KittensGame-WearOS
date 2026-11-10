@@ -92,8 +92,45 @@ final class ComplicationLiveSync {
    return;
   }
   IO.execute(()->{
-   try{refreshBlocking(app);}catch(Throwable ignored){}
+   boolean refreshed=false;
+   try{refreshed=refreshBlocking(app);}catch(Throwable ignored){}
+   if(!refreshed){
+    try{Thread.sleep(650);}catch(InterruptedException ignored){}
+   }
    if(done!=null)new Handler(Looper.getMainLooper()).post(done);
+  });
+ }
+
+ static void waitUntilWatchIsNotOwner(Context c,Runnable ready){
+  Context app=c.getApplicationContext();
+  IO.execute(()->{
+   boolean retry=true;
+   HttpURLConnection conn=null;
+   try{
+    Config cfg=config(app);
+    if(cfg==null)return;
+    conn=(HttpURLConnection)new URL(stateUrl(cfg)).openConnection();
+    conn.setConnectTimeout(1800);
+    conn.setReadTimeout(2200);
+    conn.setRequestMethod("GET");
+    conn.setRequestProperty("Accept","application/json");
+    conn.setRequestProperty("X-Device-Id","watch");
+    conn.setRequestProperty("X-Device-Token",cfg.deviceToken);
+    int code=conn.getResponseCode();
+    InputStream in=code>=400?conn.getErrorStream():conn.getInputStream();
+    if(in!=null&&code<400){
+     JSONObject body=new JSONObject(new String(in.readAllBytes(),StandardCharsets.UTF_8));
+     JSONObject state=body.optJSONObject("state");
+     String owner=state==null?"":state.optString("ownerDeviceId","");
+     retry="watch".equals(owner);
+    }
+   }catch(Throwable ignored){}
+   finally{if(conn!=null)conn.disconnect();}
+   if(retry){
+    new Handler(Looper.getMainLooper()).postDelayed(()->waitUntilWatchIsNotOwner(app,ready),1000);
+   }else if(ready!=null){
+    new Handler(Looper.getMainLooper()).post(ready);
+   }
   });
  }
 
