@@ -64,3 +64,13 @@ The settings UI must show `errorMessage` instead of always collapsing failures t
 The v1006110 APK displayed `Promotion status: Tracker JavaScript is missing.` despite containing `assets/public/phone/resource-tracker-phone.js`. Root cause: the native Capacitor shell loads `assets/public/index.html`, but the APK reconstruction had injected the phone scripts only in `assets/public/index-mobile.html`. Both pages load `mobile/jsx/popups/options.jsx.js`, so the option row was visible while the tracker global was undefined.
 
 Fix: inject the full phone script bundle in **both** `index.html` and `index-mobile.html`. Use `phone/patch-resource-tracker-entry.py` when repacking future phone APKs. Verify that the signed APK contains both script tags and native registration. The recovered v1006111 APK is signed with the existing custom phone certificate; Android Live Update promotion itself still requires physical-device testing.
+
+## Direct native bridge and background production (v1006112)
+
+Physical report from v1006111: the Options popup was able to find the tracker JavaScript but displayed `Native KittensResourceTracker method "status" is unavailable`. The APK's `classes3.dex` does contain the native `status` method, and `assets/capacitor.plugins.json` registers the plugin. This isolates the failure to the generated JavaScript `Capacitor.Plugins` proxy exposing an incomplete method set, rather than a missing Java class.
+
+The tracker now uses `Capacitor.nativePromise('KittensResourceTracker', method, payload)`, which is supported by the Android shell's `assets/native-bridge.js` and sends calls directly to Android's registered plugin. A simulated bridge test verified the direct `status`, `start`, `update` and `stop` round trips with no `Capacitor.Plugins` methods available.
+
+The snapshot calculation also no longer uses `game.isPaused` to force production to zero: the mobile app sets that flag on ordinary Activity backgrounding, yet resource production continues as part of the game's offline mechanics. In the background the foreground service extrapolates from the last exact value/rate; changes on the watch or other game-state transitions will not be reflected exactly until the phone receives and processes an updated state. Android retains control of whether the otherwise ongoing notification is promoted into a status-bar Live Update chip.
+
+This implementation was statically checked in the repacked, signed v1006112 APK with both HTML entry points, the native tracker DEX and Capacitor plugin registration present. Physical-device notification promotion still needs verification.
