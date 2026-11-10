@@ -279,6 +279,7 @@
       setWritable:setWritable,
       onStatus:function(st){
         setStatus(st.message||('Live Sync: '+st.role));
+        if(st.role!=='owner')syncNativeConfig();
         if(st.role==='owner'&&pendingResetText())setTimeout(publishPendingReset,0);
       }
     });
