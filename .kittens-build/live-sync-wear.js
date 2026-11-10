@@ -60,6 +60,7 @@
       .map(function(r){
         return {
           name:r.name,
+          title:r.title||r.name,
           value:Number(r.value)||0,
           max:Number(r.maxValue)||0,
           rate:game.isPaused?0:((Number(game.getResourcePerTick(r.name,true))||0)*(Number(game.ticksPerSecond)||0))
@@ -172,6 +173,24 @@
   function setWritable(writable){
     if(writable)removeOverlay();
     else showOverlay('The phone currently owns the game. Tap Take control to switch to the watch.');
+  }
+
+  function syncNativeConfig(){
+    try{
+      if(!client)return;
+      var cfg=client.getConfig();
+      if(!cfg.endpoint||!cfg.sessionId||!cfg.deviceToken)return;
+      fetch('/live-sync/native-config',{
+        method:'POST',
+        body:JSON.stringify({endpoint:cfg.endpoint,sessionId:cfg.sessionId,deviceToken:cfg.deviceToken}),
+        keepalive:true,
+        cache:'no-store'
+      }).catch(function(){});
+    }catch(e){}
+  }
+
+  function clearNativeConfig(){
+    try{fetch('/live-sync/native-clear',{method:'POST',body:'{}',keepalive:true,cache:'no-store'}).catch(function(){});}catch(e){}
   }
 
   function setStatus(text){
@@ -300,6 +319,7 @@
         setStatus('Live Sync: claiming pairing code…');
         var result=await KittensLiveSync.claimPair({endpoint:endpoint,code:code});
         ensureClient().setConfig({endpoint:endpoint,sessionId:result.sessionId,deviceToken:result.deviceToken});
+        syncNativeConfig();
         setStatus('Live Sync paired. Connecting…');
         client.connect();setTimeout(function(){client.claim();},250);
       }catch(e){setStatus('Live Sync pairing failed: '+e.message);}
@@ -313,7 +333,7 @@
     });
     addButton(panel,'Disable Live Sync on watch',function(){
       if(!confirm('Disable Live Sync on this watch?'))return;
-      try{ensureClient().clearConfig();removeOverlay();setStatus('Live Sync disabled.');}catch(e){}
+      try{clearNativeConfig();ensureClient().clearConfig();removeOverlay();setStatus('Live Sync disabled.');}catch(e){}
     });
 
     statusEl=document.createElement('p');statusEl.id='wearLiveSyncStatus';statusEl.style.cssText='font-size:11px;white-space:pre-wrap;';
@@ -324,6 +344,7 @@
     if(cfg.endpoint&&cfg.sessionId&&cfg.deviceToken){
       codeInput.style.display='none';
       setStatus('Live Sync configured. Connecting…');
+      syncNativeConfig();
       client.connect();
     }else{
       setStatus('Live Sync not paired yet.');
@@ -340,9 +361,14 @@
     try{if(client)client.scheduleCommit(delay==null?180:delay);}catch(e){}
   }
 
+  function pushLiveNow(){
+    try{return client?client.pushLiveNow():false;}catch(e){return false;}
+  }
+
   global.KittensLiveSyncWear={
     init:init,
     scheduleCommit:scheduleCommit,
+    pushLiveNow:pushLiveNow,
     getStatus:function(){return client?{role:client.getRole(),config:client.getConfig(),serverState:client.getServerState()}:{role:'offline',config:{}};}
   };
 
