@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { LEASE_MS, canTakeOwnership, nextRevision, liveEnvelope, publicState } from "./session-state.js";
+import { LEASE_MS, canTakeOwnership, nextRevision, liveEnvelope, publicState, shouldPersistLive } from "./session-state.js";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -221,7 +221,8 @@ export class KittensSession extends DurableObject {
       if (!(await this.validateDevice(deviceId, token))) {
         return json({ ok: false, error: "unauthorized" }, 401);
       }
-      return json({ ok: true, state: publicState(meta) });
+      const live = await this.ctx.storage.get("liveState");
+      return json({ ok: true, state: publicState(meta), live: live || null, serverTime: Date.now() });
     }
 
     if (request.headers.get("upgrade")?.toLowerCase() === "websocket") {
@@ -239,7 +240,7 @@ export class KittensSession extends DurableObject {
     return this.ctx.getWebSockets().filter(ws => {
       try {
         const a = ws.deserializeAttachment() || {};
-        return a.authed && a.deviceId === deviceId;
+        return a.authed && !a.observer && a.deviceId === deviceId;
       } catch { return false; }
     });
   }
@@ -284,19 +285,30 @@ export class KittensSession extends DurableObject {
         try { ws.close(1008, "unauthorized"); } catch {}
         return;
       }
-      attachment = { authed: true, deviceId: data.deviceId };
+      attachment = { authed: true, deviceId: data.deviceId, observer: !!data.observer };
       ws.serializeAttachment(attachment);
       const meta = await this.meta();
+      const live = await this.ctx.storage.get("liveState");
       this.send(ws, {
         type: "welcome",
         state: publicState(meta),
-        saveText: Number(data.lastRevision || 0) === Number(meta.revision || 0) ? null : meta.saveText
+        live: live || null,
+        observer: !!attachment.observer,
+        saveText: attachment.observer ? null : (Number(data.lastRevision || 0) === Number(meta.revision || 0) ? null : meta.saveText)
       });
       return;
     }
 
     const deviceId = attachment.deviceId;
     let meta = await this.meta();
+
+    if (attachment.observer) {
+      if (data.type === "observer-heartbeat") {
+        const live = await this.ctx.storage.get("liveState");
+        this.send(ws, { type: "observer-heartbeat-ack", serverTime: Date.now(), live: live || null });
+      }
+      return;
+    }
 
     if (data.type === "claim") {
       if (canTakeOwnership(meta, deviceId)) {
@@ -352,7 +364,10 @@ export class KittensSession extends DurableObject {
       if (meta.ownerDeviceId !== deviceId) return;
       meta = { ...meta, leaseUntil: Date.now() + LEASE_MS };
       await this.putMeta(meta);
-      this.broadcast(liveEnvelope(meta, data.resources), ws);
+      const live = liveEnvelope(meta, data.resources);
+      const previous = await this.ctx.storage.get("liveState");
+      if (shouldPersistLive(previous, live)) await this.ctx.storage.put("liveState", live);
+      this.broadcast(live, ws);
       return;
     }
 
