@@ -13,6 +13,7 @@ public class ResourceTrackerService extends Service {
     static final int NOTIFICATION_ID = 41617;
     static final int DRACULA_PURPLE = Color.rgb(189, 147, 249);
     static final int DRACULA_GREEN = Color.rgb(80, 250, 123);
+    private static volatile boolean running = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable tick = new Runnable() {
@@ -29,6 +30,7 @@ public class ResourceTrackerService extends Service {
 
     @Override public void onCreate() {
         super.onCreate();
+        running = true;
         createChannel();
     }
 
@@ -45,6 +47,7 @@ public class ResourceTrackerService extends Service {
     }
 
     @Override public void onDestroy() {
+        running = false;
         handler.removeCallbacks(tick);
         super.onDestroy();
     }
@@ -52,6 +55,7 @@ public class ResourceTrackerService extends Service {
     @Override public android.os.IBinder onBind(Intent intent) { return null; }
 
     static void start(Context c) {
+        if (running) return;
         Intent i = new Intent(c, ResourceTrackerService.class);
         if (Build.VERSION.SDK_INT >= 26) c.startForegroundService(i);
         else c.startService(i);
