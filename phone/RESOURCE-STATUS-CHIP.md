@@ -58,3 +58,9 @@ If Options reports **"Promotion status: Could not read native status"**, it does
 - `activeFound=true` but `activePromoted=false`: inspect `canPostPromoted`, `lastPromotable`, channel importance, and system Live Update settings.
 
 The settings UI must show `errorMessage` instead of always collapsing failures to "Could not read native status". Do not display a selected resource as successfully enabled unless the native `start()` call resolves. Keep the existing phone package identity and signing key when producing a new APK; otherwise Android will reject an in-place upgrade.
+
+## Native launch-page regression fixed (v1006111)
+
+The v1006110 APK displayed `Promotion status: Tracker JavaScript is missing.` despite containing `assets/public/phone/resource-tracker-phone.js`. Root cause: the native Capacitor shell loads `assets/public/index.html`, but the APK reconstruction had injected the phone scripts only in `assets/public/index-mobile.html`. Both pages load `mobile/jsx/popups/options.jsx.js`, so the option row was visible while the tracker global was undefined.
+
+Fix: inject the full phone script bundle in **both** `index.html` and `index-mobile.html`. Use `phone/patch-resource-tracker-entry.py` when repacking future phone APKs. Verify that the signed APK contains both script tags and native registration. The recovered v1006111 APK is signed with the existing custom phone certificate; Android Live Update promotion itself still requires physical-device testing.
