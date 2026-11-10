@@ -83,7 +83,6 @@ public class KittensComplicationService extends ComplicationDataSourceService {
   }
  }
 
- }
  @Override public ComplicationData getPreviewData(ComplicationType type){
   return buildStatic(type,"1.2K","Catnip","Catnip 1.2K",0);
  }
@@ -224,7 +223,6 @@ public static abstract class HudFixedResourceService extends ComplicationDataSou
   deliver(listener,buildData(request.getComplicationType(),r,id));
  }
 
- }
  @Override public ComplicationData getPreviewData(ComplicationType type){
   String n=resourceName();
   ComplicationStore.ResourceInfo fake=new ComplicationStore.ResourceInfo(n,n,65,100,0,System.currentTimeMillis());
@@ -378,7 +376,6 @@ public static abstract class HudPanelComplicationService extends ComplicationDat
   deliver(listener,data);
  }
 
- }
  @Override public ComplicationData getPreviewData(ComplicationType type){
   if(!ComplicationType.SMALL_IMAGE.equals(type))return null;
   Bitmap bitmap=render(true);
