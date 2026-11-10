@@ -129,6 +129,10 @@
     return out;
   }
 
+  function status(){
+    return call('status',{}).catch(function(){return {enabled:false,error:true};});
+  }
+
   function openSettings(){
     return call('openLiveUpdateSettings',{}).catch(function(){});
   }
@@ -156,6 +160,7 @@
     stop:stop,
     sync:sync,
     items:items,
+    status:status,
     openSettings:openSettings
   };
 
