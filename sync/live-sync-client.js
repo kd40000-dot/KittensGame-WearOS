@@ -267,6 +267,7 @@
           clearClaimRetry();
           setRole('owner','Live Sync connected · this device owns the session.');
           startOwnerLoops();
+          pushLiveNow();
         }else{
           setRole('mirror','Live Sync connected · '+(serverState.ownerDeviceId||'no device')+' owns the session.');
         }
@@ -293,6 +294,7 @@
         }
         setRole('owner','Live Sync: control granted.');
         startOwnerLoops();
+        pushLiveNow();
         if(pendingHandoffTo){
           var handoffTarget=pendingHandoffTo;
           pendingHandoffTo=null;
