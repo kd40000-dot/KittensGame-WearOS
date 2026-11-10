@@ -9,7 +9,7 @@
   // after the Android project was originally built. nativePromise dispatches
   // directly to the native plugin (by class/method name), bypassing that proxy.
   function nativeReady(){
-    return !!(global.Capacitor&&typeof global.Capacitor.nativePromise==='function');
+    return !!(global.Capacitor && typeof global.Capacitor.nativePromise==='function' && global.androidBridge && typeof global.androidBridge.postMessage==='function');
   }
 
   function selected(){
@@ -61,11 +61,43 @@
 
   function call(method,args){
     if(!nativeReady()){
-      return Promise.reject(new Error('Capacitor Android bridge is unavailable; cannot '+method+' resource tracker.'));
+      return Promise.reject(new Error('Android bridge transport missing (window.androidBridge.postMessage). The packaged Capacitor script exists, but Android did not inject its native transport.'));
     }
-    try{
-      return Promise.resolve(global.Capacitor.nativePromise('KittensResourceTracker',method,args||{}));
-    }catch(e){return Promise.reject(e);}
+    return new Promise(function(resolve,reject){
+      var settled=false;
+      var timeout=setTimeout(function(){
+        if(settled)return;
+        settled=true;
+        reject(new Error('Android plugin '+method+' timed out after 5 seconds. The native bridge did not deliver a reply (plugin may be unregistered).'));
+      },5000);
+      function finish(error,result){
+        if(settled)return;
+        settled=true;
+        clearTimeout(timeout);
+        if(error)reject(error);else resolve(result);
+      }
+      try{
+        var result=global.Capacitor.nativePromise('KittensResourceTracker',method,args||{});
+        if(!result||typeof result.then!=='function'){
+          finish(new Error('Capacitor.nativePromise did not return a Promise.'));
+        }else{
+          result.then(function(value){finish(null,value);},function(err){
+            finish(new Error('Native '+method+': '+(err&&err.message||String(err))));
+          });
+        }
+      }catch(e){finish(e);}
+    });
+  }
+
+  // Native notification test independent of game resources, with a fixed value.
+  function testNotification(){
+    return call('start',{name:'test',title:'Kittens notification test',value:42,max:100,rate:0}).then(function(result){
+      return new Promise(function(resolve){setTimeout(resolve,600);}).then(function(){return call('status',{});}).then(function(status){
+        if(!status||!status.enabled)throw new Error('Native start returned, but tracking is not enabled.');
+        if(!status.activeFound)throw new Error('Service accepted the test, but Android did not report an active notification. Check notification permissions, service logs and channel.');
+        return {status:status,result:result};
+      });
+    });
   }
 
   function start(name){
@@ -182,7 +214,8 @@
     sync:sync,
     items:items,
     status:status,
-    openSettings:openSettings
+    openSettings:openSettings,
+    testNotification:testNotification
   };
 
   (function autoInit(){
