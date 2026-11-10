@@ -28,6 +28,11 @@ public class KittensComplicationService extends ComplicationDataSourceService {
  @Override public void onComplicationRequest(ComplicationRequest request,ComplicationRequestListener listener){
   int id=request.getComplicationInstanceId();
   ComplicationStore.markActive(this,id,true);
+  ComplicationLiveSync.startObserver(this);
+  ComplicationLiveSync.refreshAsync(this,()->deliverCurrent(request,listener,id));
+ }
+
+ private void deliverCurrent(ComplicationRequest request,ComplicationRequestListener listener,int id){
   ComplicationStore.ResourceInfo r=ComplicationStore.selectedInfo(this,id);
   ComplicationType type=request.getComplicationType();
 
@@ -78,6 +83,7 @@ public class KittensComplicationService extends ComplicationDataSourceService {
   }
  }
 
+ }
  @Override public ComplicationData getPreviewData(ComplicationType type){
   return buildStatic(type,"1.2K","Catnip","Catnip 1.2K",0);
  }
@@ -188,11 +194,28 @@ public class KittensComplicationService extends ComplicationDataSourceService {
   }
  }
 
+ public static void requestPanelUpdates(Context c){
+  Class<?>[] services=new Class<?>[]{
+   HudMetalsPanelService.class, HudIndustryPanelService.class, HudVillagePanelService.class, HudMythicPanelService.class,
+   HudRawPanelService.class, HudRarePanelService.class, HudBottomPanelService.class
+  };
+  for(Class<?> cls:services){
+   try{
+    ComplicationDataSourceUpdateRequester.create(c,new ComponentName(c,cls)).requestUpdateAll();
+   }catch(Throwable ignored){}
+  }
+ }
+
 public static abstract class HudFixedResourceService extends ComplicationDataSourceService {
  protected abstract String resourceName();
 
  @Override public void onComplicationRequest(ComplicationRequest request,ComplicationRequestListener listener){
   int id=request.getComplicationInstanceId();
+  ComplicationLiveSync.startObserver(this);
+  ComplicationLiveSync.refreshAsync(this,()->deliverCurrent(request,listener,id));
+ }
+
+ private void deliverCurrent(ComplicationRequest request,ComplicationRequestListener listener,int id){
   ComplicationStore.ResourceInfo r=ComplicationStore.findByName(this,resourceName());
   if(r==null){
    deliver(listener,emptyData(request.getComplicationType(),id));
@@ -201,6 +224,7 @@ public static abstract class HudFixedResourceService extends ComplicationDataSou
   deliver(listener,buildData(request.getComplicationType(),r,id));
  }
 
+ }
  @Override public ComplicationData getPreviewData(ComplicationType type){
   String n=resourceName();
   ComplicationStore.ResourceInfo fake=new ComplicationStore.ResourceInfo(n,n,65,100,0,System.currentTimeMillis());
@@ -336,6 +360,11 @@ public static abstract class HudPanelComplicationService extends ComplicationDat
  protected abstract String[] resourceNames();
 
  @Override public void onComplicationRequest(ComplicationRequest request,ComplicationRequestListener listener){
+  ComplicationLiveSync.startObserver(this);
+  ComplicationLiveSync.refreshAsync(this,()->deliverCurrent(request,listener));
+ }
+
+ private void deliverCurrent(ComplicationRequest request,ComplicationRequestListener listener){
   if(!ComplicationType.SMALL_IMAGE.equals(request.getComplicationType())){
    deliver(listener,new NoDataComplicationData());
    return;
@@ -349,6 +378,7 @@ public static abstract class HudPanelComplicationService extends ComplicationDat
   deliver(listener,data);
  }
 
+ }
  @Override public ComplicationData getPreviewData(ComplicationType type){
   if(!ComplicationType.SMALL_IMAGE.equals(type))return null;
   Bitmap bitmap=render(true);
