@@ -80,6 +80,15 @@ final class LocalGameServer {
    if(request[0].equals("POST")&&path.equals("/complication-state")){
     data=in.readNBytes(length);if(data.length!=length)throw new IOException("Incomplete complication body");
     ComplicationStore.saveSnapshot(context,new String(data,StandardCharsets.UTF_8));data="{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
+   }else if(request[0].equals("POST")&&path.equals("/live-sync/native-config")){
+    data=in.readNBytes(length);if(data.length!=length)throw new IOException("Incomplete Live Sync config body");
+    org.json.JSONObject cfg=new org.json.JSONObject(new String(data,StandardCharsets.UTF_8));
+    ComplicationLiveSync.saveConfig(context,cfg.getString("endpoint"),cfg.getString("sessionId"),cfg.getString("deviceToken"));
+    data="{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
+   }else if(request[0].equals("POST")&&path.equals("/live-sync/native-clear")){
+    if(length>0)in.readNBytes(length);
+    ComplicationLiveSync.clearConfig(context);
+    data="{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
    }else if(request[0].equals("POST")&&path.equals("/open-complication-settings")){
     android.content.Intent intent=new android.content.Intent(context,ComplicationConfigActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);context.startActivity(intent);data="{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
    }else if(request[0].equals("POST")&&(path.equals("/backup")||path.equals("/save-manual"))){
