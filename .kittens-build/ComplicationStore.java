@@ -82,7 +82,11 @@ final class ComplicationStore {
   return out;
  }
 
- static void saveSnapshot(Context c,String json) throws Exception {
+ static boolean saveSnapshot(Context c,String json) throws Exception {
+  return saveSnapshot(c,json,true);
+ }
+
+ static boolean saveSnapshot(Context c,String json,boolean requestUpdates) throws Exception {
   JSONObject root=new JSONObject(json);
   root.getJSONArray("resources");
   root.put("timestamp",System.currentTimeMillis());
@@ -105,11 +109,12 @@ final class ComplicationStore {
    else cancelFullAlarm(c,id);
   }
 
-  // A spend/craft/build action must invalidate the visible complication immediately.
-  // Otherwise ordinary refreshes may be throttled for several minutes.
-  // HUD image panels are snapshot-rendered rather than continuously evaluated,
-  // so refresh them whenever the game posts its current resource state.
-  requestUpdate(c,true);
+  // Dynamic resource complications can project ordinary production from
+  // value+rate+timestamp. Callers decide whether this snapshot should also
+  // invalidate the visible providers (native Live Sync handles image panels
+  // separately so they can refresh frequently without rebuilding everything).
+  if(requestUpdates)requestUpdate(c,true);
+  return trackedChanged;
  }
 
  static boolean meaningfulStateChange(ResourceInfo before,ResourceInfo now){
