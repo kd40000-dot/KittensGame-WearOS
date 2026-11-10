@@ -117,6 +117,25 @@ final class ComplicationStore {
   return trackedChanged;
  }
 
+ static void freezeAtCurrentValues(Context c){
+  try{
+   long now=System.currentTimeMillis();
+   JSONArray a=new JSONArray();
+   for(ResourceInfo r:resources(c)){
+    JSONObject o=new JSONObject();
+    o.put("name",r.name);
+    o.put("title",r.title);
+    o.put("value",r.projected(now));
+    o.put("max",r.max);
+    o.put("rate",0);
+    a.put(o);
+   }
+   JSONObject root=new JSONObject();root.put("resources",a);
+   saveSnapshot(c,root.toString(),false);
+   requestUpdate(c,true);
+  }catch(Throwable ignored){}
+ }
+
  static boolean meaningfulStateChange(ResourceInfo before,ResourceInfo now){
   if(before==null||now==null)return before!=now;
   if(!nearlyEqual(before.max,now.max)||!nearlyEqual(before.rate,now.rate))return true;
