@@ -1307,7 +1307,10 @@
     }
     // Push post-transaction resource values immediately so complication slots
     // reflect spends/crafts/builds without waiting for the periodic snapshot.
-    Promise.resolve().then(()=>syncComplication(true)).catch(()=>{});
+    Promise.resolve().then(()=>{
+      try{if(window.KittensLiveSyncWear)KittensLiveSyncWear.pushLiveNow();}catch(e){}
+      return syncComplication(true);
+    }).catch(()=>{});
     return result;
    };
   }
