@@ -264,7 +264,12 @@
       deviceId:'phone',
       getSave:function(){return getDraculaSave();},
       onEntry:function(){
-        try{if(global.KittensLiveSyncPhone)KittensLiveSyncPhone.scheduleCommit(180);}catch(e){}
+        try{
+          if(global.KittensLiveSyncPhone){
+            KittensLiveSyncPhone.pushLiveNow();
+            KittensLiveSyncPhone.scheduleCommit(180);
+          }
+        }catch(e){}
         scheduleAutoSync();
       }
     });
