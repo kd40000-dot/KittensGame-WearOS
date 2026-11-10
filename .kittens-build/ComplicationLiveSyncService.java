@@ -105,6 +105,8 @@ public class ComplicationLiveSyncService extends Service {
       }else if("welcome".equals(type)||"observer-heartbeat-ack".equals(type)){
        JSONObject live=data.optJSONObject("live");
        if(live!=null)ComplicationLiveSync.acceptLiveEnvelope(ComplicationLiveSyncService.this,live,true);
+      }else if("owner-changed".equals(type)&&data.isNull("ownerDeviceId")){
+       ComplicationStore.freezeAtCurrentValues(ComplicationLiveSyncService.this);
       }else if("auth-failed".equals(type)){
        updateNotification("Kittens complication sync needs re-pairing");
       }
