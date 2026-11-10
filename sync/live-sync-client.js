@@ -99,6 +99,14 @@
       clearInterval(liveTimer);liveTimer=0;
     }
 
+    function pushLiveNow(){
+      if(role!=='owner'||!connected||!authed)return false;
+      try{
+        var resources=opts.getResources?opts.getResources():[];
+        return send({type:'live',resources:resources});
+      }catch(e){return false;}
+    }
+
     function startOwnerLoops(){
       stopOwnerLoops();
       heartbeatTimer=setInterval(function(){
@@ -106,10 +114,7 @@
       },5000);
       liveTimer=setInterval(function(){
         if(role!=='owner'||document.hidden)return;
-        try{
-          var resources=opts.getResources?opts.getResources():[];
-          send({type:'live',resources:resources});
-        }catch(e){}
+        pushLiveNow();
       },500);
     }
 
@@ -262,6 +267,7 @@
           clearClaimRetry();
           setRole('owner','Live Sync connected · this device owns the session.');
           startOwnerLoops();
+          pushLiveNow();
         }else{
           setRole('mirror','Live Sync connected · '+(serverState.ownerDeviceId||'no device')+' owns the session.');
         }
@@ -288,6 +294,7 @@
         }
         setRole('owner','Live Sync: control granted.');
         startOwnerLoops();
+        pushLiveNow();
         if(pendingHandoffTo){
           var handoffTarget=pendingHandoffTo;
           pendingHandoffTo=null;
@@ -508,7 +515,7 @@
 
     return {
       connect:connect,disconnect:disconnect,claim:claim,forceClaim:forceClaim,release:release,
-      releaseSaveText:releaseSaveText,commitNow:commitNow,scheduleCommit:scheduleCommit,getConfig:getConfig,setConfig:setConfig,
+      releaseSaveText:releaseSaveText,commitNow:commitNow,scheduleCommit:scheduleCommit,pushLiveNow:pushLiveNow,getConfig:getConfig,setConfig:setConfig,
       clearConfig:clearConfig,getLastRevision:getLastRevision,getRole:function(){return role;},
       getServerState:function(){return serverState;},setLastRevision:setLastRevision
     };
