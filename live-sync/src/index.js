@@ -44,7 +44,7 @@ export default {
     const url = new URL(request.url);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     if (url.pathname === "/health") {
-      return json({ ok: true, service: "kittens-live-sync", version: 1 });
+      return json({ ok: true, service: "kittens-live-sync", version: 2, retainedLiveResources: true, observerSockets: true });
     }
 
     const bootstrap = url.pathname.match(/^\/api\/session\/([^/]+)\/bootstrap$/);
