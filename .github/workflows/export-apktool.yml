@@ -1,0 +1,26 @@
+name: Export Apktool
+
+on:
+  push:
+    paths:
+      - '.github/workflows/export-apktool.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download apktool
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3             https://github.com/iBotPeaches/Apktool/releases/download/v2.12.0/apktool_2.12.0.jar             -o apktool.jar
+          echo "75b8a32f89f7ee95a2a4a9595d7a0baa6f40b10d4b05c2349fd57657f946a434  apktool.jar" > expected.txt || true
+          ls -lh apktool.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apktool-2.12.0
+          path: apktool.jar
+          retention-days: 7
