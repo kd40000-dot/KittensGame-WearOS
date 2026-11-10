@@ -27,11 +27,19 @@ public class ResourceTrackerPlugin extends Plugin {
                 number(call, "max"),
                 number(call, "rate")
             );
-            ResourceTrackerService.start(c);
+            boolean rootGranted=false;
             if (Build.VERSION.SDK_INT >= 36 && !canPostPromoted(c)) {
+                rootGranted=tryRootGrant(c);
+            }
+            ResourceTrackerService.start(c);
+            if (Build.VERSION.SDK_INT >= 36 && !canPostPromoted(c) && !rootGranted) {
                 openPromotedSettings(c);
             }
-            call.resolve();
+            JSObject out=new JSObject();
+            out.put("rootGrantAttempted", Build.VERSION.SDK_INT >= 36);
+            out.put("rootGrantSucceeded", rootGranted);
+            out.put("canPostPromoted", Build.VERSION.SDK_INT < 36 || canPostPromoted(c));
+            call.resolve(out);
         } catch (Throwable e) {
             call.reject("Could not start resource tracker: " + e.getMessage());
         }
@@ -80,6 +88,9 @@ public class ResourceTrackerPlugin extends Plugin {
             out.put("sdk", Build.VERSION.SDK_INT);
             out.put("canPostPromoted", Build.VERSION.SDK_INT < 36 || canPostPromoted(c));
             out.put("lastPromotable", c.getSharedPreferences(ResourceTrackerService.PREFS, Context.MODE_PRIVATE).getBoolean("last_promotable", false));
+            out.put("activePromoted", ResourceTrackerService.isActiveNotificationPromoted(c));
+            out.put("activeFound", ResourceTrackerService.isActiveNotificationPresent(c));
+            out.put("channelImportance", ResourceTrackerService.channelImportance(c));
             call.resolve(out);
         } catch (Throwable e) {
             call.reject("Could not read resource tracker status: " + e.getMessage());
@@ -93,6 +104,21 @@ public class ResourceTrackerPlugin extends Plugin {
             call.resolve();
         } catch (Throwable e) {
             call.reject("Could not open notification settings: " + e.getMessage());
+        }
+    }
+
+    private static boolean tryRootGrant(Context c) {
+        try {
+            String pkg=c.getPackageName();
+            String cmd="appops set --uid " + pkg + " android:post_promoted_notifications allow";
+            Process proc=new ProcessBuilder("su","-c",cmd).redirectErrorStream(true).start();
+            boolean finished=proc.waitFor(4, java.util.concurrent.TimeUnit.SECONDS);
+            if(!finished){proc.destroy();return false;}
+            // Give PermissionManager/AppOps a moment to observe the uid-mode change.
+            try{Thread.sleep(180);}catch(InterruptedException ignored){}
+            return proc.exitValue()==0 && canPostPromoted(c);
+        } catch(Throwable e) {
+            return false;
         }
     }
 
