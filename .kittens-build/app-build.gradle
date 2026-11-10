@@ -1,6 +1,6 @@
 plugins { id 'com.android.application' }
 android { namespace 'com.balthazar.kittenswear'; compileSdk 36
- defaultConfig { applicationId 'com.balthazar.kittenswear'; minSdk 33; targetSdk 34; versionCode 16; versionName '1.1.5'; ndk { abiFilters.addAll(project.hasProperty('emulatorBuild') ? ['x86_64'] : ['armeabi-v7a']) } }
+ defaultConfig { applicationId 'com.balthazar.kittenswear'; minSdk 33; targetSdk 34; versionCode 17; versionName '1.1.5'; ndk { abiFilters.addAll(project.hasProperty('emulatorBuild') ? ['x86_64'] : ['armeabi-v7a']) } }
  signingConfigs { personal { storeFile file('../personal.jks'); storePassword System.getenv('KITTENS_KEYSTORE_PASSWORD'); keyAlias 'kittens'; keyPassword System.getenv('KITTENS_KEYSTORE_PASSWORD') } }
  buildTypes { release { minifyEnabled false; signingConfig signingConfigs.personal } }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
