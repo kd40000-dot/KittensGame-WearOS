@@ -82,7 +82,7 @@
 
     function setRole(next,message){
       role=next;
-      if(opts.setWritable)try{opts.setWritable(next==='owner');}catch(e){}
+      if(opts.setWritable)try{opts.setWritable(next==='owner',next,serverState);}catch(e){}
       if(opts.onRole)try{opts.onRole(next,serverState);}catch(e){}
       emit(message||('Live Sync: '+next));
     }
@@ -260,7 +260,7 @@
         authed=true;
         serverState=data.state||{};
         reconnectDelay=700;
-        var shouldClaim=pendingClaim||wantControl||(firstWelcome&&!document.hidden);
+        var shouldClaim=pendingClaim||wantControl||!document.hidden;
         firstWelcome=false;
         if(serverState.ownerDeviceId===deviceId){
           wantControl=true;
