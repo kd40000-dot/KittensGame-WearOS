@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { LEASE_MS, canTakeOwnership, nextRevision, liveEnvelope, publicState, shouldPersistLive } from "./session-state.js";
+import { LEASE_MS, canTakeOwnership, nextRevision, liveEnvelope, publicState, shouldPersistLive, retainLegacyWearOwner } from "./session-state.js";
 
 const CORS = {
   "access-control-allow-origin": "*",
@@ -387,7 +387,7 @@ export class KittensSession extends DurableObject {
         // background. Treat it as a final save, NOT an ownership transfer.
         // Only an actual claim by the phone transfers ownership. The phone
         // client already preserves ownership when backgrounded.
-        const legacyWearBackground = deviceId === "watch" && !data.explicitRelease;
+        const legacyWearBackground = retainLegacyWearOwner(deviceId, data.explicitRelease);
         if (legacyWearBackground) {
           await this.putMeta(meta);
           this.send(ws, { type: "release-ack", revision: meta.revision, ownerDeviceId: deviceId, retained: true });
