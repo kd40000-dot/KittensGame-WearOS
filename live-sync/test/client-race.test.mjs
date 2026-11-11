@@ -147,3 +147,19 @@ test("reset release publishes the exact post-reset save and waits for acknowledg
   assert.equal(h.client.getLastRevision(),6);
   assert.equal(h.client.getRole(),"mirror");
 });
+
+test("visible reconnect automatically requests phone ownership without a click", async () => {
+  const h=harness("phone");
+  h.document.hidden=true;
+  await deliver(h.ws,{type:"welcome",state:{revision:4,ownerDeviceId:"watch",leaseUntil:999999}});
+  assert.equal(h.client.getRole(),"mirror");
+  h.document.hidden=false;
+  // A reconnect must claim even if firstWelcome has already been consumed.
+  h.client.disconnect();
+  h.client.connect();
+  const ws=h.sockets.at(-1);
+  ws.readyState=1;
+  ws.onopen();
+  await deliver(ws,{type:"welcome",state:{revision:4,ownerDeviceId:"watch",leaseUntil:999999}});
+  assert.ok([...h.timers.values()].some(t=>t.ms===50), "visible reconnect schedules automatic claim");
+});
