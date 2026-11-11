@@ -136,9 +136,36 @@
     var text=document.getElementById('kittensLiveSyncOverlayText');if(text)text.textContent=message||'The watch currently owns the live game.';
   }
 
-  function setWritable(writable){
-    if(writable)removeOverlay();
-    else showOverlay('The other device currently owns the live game. Tap below to hand control to this phone.');
+  var handoffRecoveryTimer=0;
+  function clearHandoffRecovery(){
+    if(handoffRecoveryTimer){clearTimeout(handoffRecoveryTimer);handoffRecoveryTimer=0;}
+  }
+
+  function setWritable(writable,role,serverState){
+    clearHandoffRecovery();
+    if(writable){
+      removeOverlay();
+      return;
+    }
+    // Connecting/reconnecting is not evidence that the watch owns the game.
+    // Never show the old manual Take Control prompt on a transient role.
+    if(role==='connecting'||role==='offline'||role==='claiming'||role==='releasing'){
+      removeOverlay();
+      return;
+    }
+    if(role==='mirror' && serverState && serverState.ownerDeviceId==='watch' && !document.hidden){
+      // Client already auto-claims whenever this phone becomes visible.
+      // Give the transparent handoff time to complete before showing any
+      // recovery UI. A stuck session still has an explicit escape hatch.
+      removeOverlay();
+      handoffRecoveryTimer=setTimeout(function(){
+        handoffRecoveryTimer=0;
+        if(!client||document.hidden||client.getRole()==='owner')return;
+        showOverlay('Automatic phone handoff is delayed. It will continue retrying; use the button only if you need to intervene.');
+      },20000);
+      return;
+    }
+    removeOverlay();
   }
 
   function pendingResetText(){
@@ -281,7 +308,7 @@
   function getEndpoint(){var cfg=client?client.getConfig():{};return cfg.endpoint||readSetup().endpoint||DEFAULT_ENDPOINT||'';}
   function disable(){
     if(client){client.clearConfig();client=null;}
-    removeOverlay();status={configured:false,role:'offline',message:'Live Sync disabled; GitHub fallback remains available.',pairCode:null,pairExpiresAt:0};
+    clearHandoffRecovery();removeOverlay();status={configured:false,role:'offline',message:'Live Sync disabled; GitHub fallback remains available.',pairCode:null,pairExpiresAt:0};
     emit(status.message);
   }
 
