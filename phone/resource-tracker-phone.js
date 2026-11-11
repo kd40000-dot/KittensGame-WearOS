@@ -9,7 +9,7 @@
   // after the Android project was originally built. nativePromise dispatches
   // directly to the native plugin (by class/method name), bypassing that proxy.
   function nativeReady(){
-    return !!(global.Capacitor && typeof global.Capacitor.nativePromise==='function' && global.androidBridge && typeof global.androidBridge.postMessage==='function');
+    return !!(global.kittensTrackerBridge && typeof global.kittensTrackerBridge.status==='function');
   }
 
   function selected(){
@@ -60,32 +60,16 @@
   }
 
   function call(method,args){
-    if(!nativeReady()){
-      return Promise.reject(new Error('Android bridge transport missing (window.androidBridge.postMessage). The packaged Capacitor script exists, but Android did not inject its native transport.'));
-    }
+    if(!nativeReady())return Promise.reject(new Error('Direct Android resource tracker interface is missing from WebView.'));
     return new Promise(function(resolve,reject){
-      var settled=false;
-      var timeout=setTimeout(function(){
-        if(settled)return;
-        settled=true;
-        reject(new Error('Android plugin '+method+' timed out after 5 seconds. The native bridge did not deliver a reply (plugin may be unregistered).'));
-      },5000);
-      function finish(error,result){
-        if(settled)return;
-        settled=true;
-        clearTimeout(timeout);
-        if(error)reject(error);else resolve(result);
-      }
       try{
-        var result=global.Capacitor.nativePromise('KittensResourceTracker',method,args||{});
-        if(!result||typeof result.then!=='function'){
-          finish(new Error('Capacitor.nativePromise did not return a Promise.'));
-        }else{
-          result.then(function(value){finish(null,value);},function(err){
-            finish(new Error('Native '+method+': '+(err&&err.message||String(err))));
-          });
-        }
-      }catch(e){finish(e);}
+        var bridge=global.kittensTrackerBridge;
+        if(typeof bridge[method]!=='function')throw new Error('Direct Android method '+method+' unavailable');
+        var raw=method==='start'||method==='update'?bridge[method](JSON.stringify(args||{})):bridge[method]();
+        var data=JSON.parse(raw);
+        if(!data.ok)throw new Error(data.error||'Android resource tracker failure');
+        resolve(data);
+      }catch(e){reject(e);}
     });
   }
 
