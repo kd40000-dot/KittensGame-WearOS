@@ -83,3 +83,9 @@ export function publicState(meta) {
     initialized: !!meta.initialized
   };
 }
+
+// A legacy watch release means "app hidden", not "transfer ownership".
+// Its final save should be recorded without clearing the canonical owner.
+export function retainLegacyWearOwner(deviceId, explicitRelease) {
+  return deviceId === "watch" && explicitRelease !== true;
+}
