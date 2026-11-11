@@ -383,10 +383,20 @@ export class KittensSession extends DurableObject {
     if (data.type === "release") {
       if (meta.ownerDeviceId === deviceId) {
         if (data.saveText) meta = nextRevision(meta, deviceId, data.saveText);
-        meta = { ...meta, ownerDeviceId: null, leaseUntil: 0, updatedAt: Date.now() };
-        await this.putMeta(meta);
-        this.send(ws, { type: "release-ack", revision: meta.revision });
-        this.broadcast({ type: "owner-changed", ownerDeviceId: null, revision: meta.revision }, ws);
+        // Older Wear builds incorrectly send 'release' on every Activity
+        // background. Treat it as a final save, NOT an ownership transfer.
+        // Only an actual claim by the phone transfers ownership. The phone
+        // client already preserves ownership when backgrounded.
+        const legacyWearBackground = deviceId === "watch" && !data.explicitRelease;
+        if (legacyWearBackground) {
+          await this.putMeta(meta);
+          this.send(ws, { type: "release-ack", revision: meta.revision, ownerDeviceId: deviceId, retained: true });
+        } else {
+          meta = { ...meta, ownerDeviceId: null, leaseUntil: 0, updatedAt: Date.now() };
+          await this.putMeta(meta);
+          this.send(ws, { type: "release-ack", revision: meta.revision });
+          this.broadcast({ type: "owner-changed", ownerDeviceId: null, revision: meta.revision }, ws);
+        }
       }
       return;
     }
