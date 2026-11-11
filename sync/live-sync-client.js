@@ -503,15 +503,23 @@
       setRole('offline','Live Sync disconnected.');
     }
 
+    // Ownership belongs to the device, not to the visibility of its WebView.
+    // Backgrounding must NOT release it. Only a claim from the other device
+    // (or an explicit release/reset) may move ownership. Retain the canonical
+    // save on the server when backgrounding, without relinquishing control.
     document.addEventListener('visibilitychange',function(){
       if(document.hidden){
-        if(role==='owner')release();
+        if(role==='owner')commitNow();
       }else{
         connect();
-        setTimeout(claim,100);
+        // Opening the other device should request a handoff. Reopening the
+        // device that already owns the session must never release/reclaim it.
+        setTimeout(function(){if(role!=='owner')claim();},100);
       }
     });
-    global.addEventListener('pagehide',function(){if(role==='owner')release();});
+    global.addEventListener('pagehide',function(){
+      if(role==='owner')commitNow();
+    });
 
     return {
       connect:connect,disconnect:disconnect,claim:claim,forceClaim:forceClaim,release:release,
