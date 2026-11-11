@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LEASE_MS, canTakeOwnership, nextRevision, liveEnvelope, shouldPersistLive } from "../src/session-state.js";
+import { LEASE_MS, canTakeOwnership, nextRevision, liveEnvelope, shouldPersistLive, retainLegacyWearOwner } from "../src/session-state.js";
 
 test("same device can renew ownership", () => {
   assert.equal(canTakeOwnership({ ownerDeviceId: "watch", leaseUntil: 999999 }, "watch", 10), true);
@@ -68,4 +68,11 @@ test("spends and rate/cap changes persist immediately", () => {
   assert.equal(shouldPersistLive(before, spent), true);
   assert.equal(shouldPersistLive(before, rate), true);
   assert.equal(shouldPersistLive(before, cap), true);
+});
+
+test("backgrounding legacy watch retains ownership; explicit release does not", () => {
+  assert.equal(retainLegacyWearOwner("watch", undefined), true);
+  assert.equal(retainLegacyWearOwner("watch", false), true);
+  assert.equal(retainLegacyWearOwner("watch", true), false);
+  assert.equal(retainLegacyWearOwner("phone", undefined), false);
 });
