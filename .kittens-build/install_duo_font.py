@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+"""Restore exact original Draft A glyph font as used by the phone build.
+Font binary is embedded as a compressed payload; no third-party font files.
+"""
+from pathlib import Path
+import base64, zlib, sys, hashlib
+DATA = "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"
+def main():
+    if len(sys.argv) != 2:
+        raise SystemExit("usage: install_duo_font.py <game-assets-directory>")
+    path=Path(sys.argv[1])/"duo-draft-a.ttf"
+    font=zlib.decompress(base64.b64decode(DATA))
+    assert len(font)==7724, f"Unexpected font length: {len(font)}"
+    path.write_bytes(font)
+    print(f"Draft A font installed: {path}, sha256={hashlib.sha256(font).hexdigest()}")
+if __name__=="__main__":
+    main()
