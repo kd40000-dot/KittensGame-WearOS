@@ -67,7 +67,12 @@ jobs:
           cp .kittens-build/MainActivity.java wear-kittens/app/src/main/java/com/balthazar/kittenswear/MainActivity.java
           cp .kittens-build/AndroidManifest.xml wear-kittens/app/src/main/AndroidManifest.xml
           cp .kittens-build/app-build.gradle wear-kittens/app/build.gradle
-          cat sync/live-sync-client.js .kittens-build/wear.js .kittens-build/live-sync-wear.js > wear-kittens/app/src/main/assets/game/wear.js
+          cat sync/live-sync-client.js .kittens-build/wear.js .kittens-build/live-sync-wear.js .kittens-build/duodecimal-wear.js > wear-kittens/app/src/main/assets/game/wear.js
+          python3 .kittens-build/install_duo_font.py wear-kittens/app/src/main/assets/game
+          sed -i 's/versionCode 17;/versionCode 18;/' wear-kittens/app/build.gradle
+          node --check .kittens-build/duodecimal-wear.js
+          test -s wear-kittens/app/src/main/assets/game/duo-draft-a.ttf
+          grep -q 'KittensWearDuodecimal' wear-kittens/app/src/main/assets/game/wear.js
           cat .kittens-build/dracula-wear.css >> wear-kittens/app/src/main/assets/game/wear.css
 
           keytool -genkeypair -v -keystore wear-kittens/ci-temp.jks -storepass ci-temp-pass -keypass ci-temp-pass -alias kittens -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=Kittens HUD CI"
