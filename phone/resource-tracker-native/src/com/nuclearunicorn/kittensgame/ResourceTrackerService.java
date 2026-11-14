@@ -180,7 +180,9 @@ public class ResourceTrackerService extends Service {
             ? new Notification.Builder(this, CHANNEL)
             : new Notification.Builder(this);
 
-        b.setSmallIcon(getApplicationInfo().icon)
+        int catIcon = getResources().getIdentifier("notification_cat", "drawable", getPackageName());
+        if (catIcon == 0) catIcon = getApplicationInfo().icon;
+        b.setSmallIcon(catIcon)
          .setContentTitle(title + " · " + amount)
          .setContentText(rateText)
          .setOngoing(true)
