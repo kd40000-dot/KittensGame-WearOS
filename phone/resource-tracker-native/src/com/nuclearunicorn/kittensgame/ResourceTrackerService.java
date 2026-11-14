@@ -6,6 +6,8 @@ import android.graphics.Color;
 import android.os.*;
 import java.lang.reflect.Method;
 import java.util.Locale;
+import org.json.JSONObject;
+import org.json.JSONArray;
 
 public class ResourceTrackerService extends Service {
     static final String PREFS = "kittens_resource_tracker";
@@ -14,6 +16,7 @@ public class ResourceTrackerService extends Service {
     static final int DRACULA_PURPLE = Color.rgb(189, 147, 249);
     static final int DRACULA_GREEN = Color.rgb(80, 250, 123);
     private static volatile boolean running = false;
+    private long lastQueueDispatch = 0;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable tick = new Runnable() {
@@ -24,6 +27,9 @@ public class ResourceTrackerService extends Service {
                 return;
             }
             updateNotification(false);
+            try { checkBackgroundQueue(); } catch (Throwable e) {
+                android.util.Log.w("KittensBackgroundQueue", "Queue monitor failed", e);
+            }
             handler.postDelayed(this, 1000L);
         }
     };
@@ -104,6 +110,45 @@ public class ResourceTrackerService extends Service {
         else {
             NotificationManager nm = (NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) nm.notify(NOTIFICATION_ID, n);
+        }
+    }
+
+    /**
+     * Monitor prices without independently mutating game state. Actual
+     * purchases MUST run inside the original JS game engine. A stale or
+     * absent Activity means no purchase; offline redshift handles catch-up.
+     */
+    private void checkBackgroundQueue() throws Exception {
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        String raw = prefs.getString("queue_snapshot", "");
+        if (raw.isEmpty()) return;
+        JSONObject state = new JSONObject(raw);
+        if (!state.optBoolean("owner", false)) return;
+        if (!state.optBoolean("pending", false)) return;
+        JSONArray prices = state.optJSONArray("prices");
+        if (prices == null || prices.length() == 0) return;
+        long now = System.currentTimeMillis();
+        long sampled = state.optLong("at", 0L);
+        if (sampled <= 0L || now - sampled < 0 || now - sampled > 24L*60*60*1000) return;
+        // Avoid repeated work when the WebView is suspended; the game is the
+        // only authority that can confirm the purchase and publish a new save.
+        if (now - lastQueueDispatch < 12000) return;
+        double elapsed = (now - sampled) / 1000.0;
+        for (int i = 0; i < prices.length(); i++) {
+            JSONObject p = prices.getJSONObject(i);
+            double required = p.optDouble("price", Double.POSITIVE_INFINITY);
+            double value = p.optDouble("value", 0.0);
+            double rate = p.optDouble("rate", 0.0);
+            double max = p.optDouble("max", 0.0);
+            if (!Double.isFinite(required) || !Double.isFinite(value) || !Double.isFinite(rate)) return;
+            if (max > 0 && max + 1e-9 < required) return;
+            double projected = value + Math.max(0.0, elapsed) * rate;
+            if (max > 0) projected = Math.min(max, projected);
+            if (projected + Math.max(1e-8, required * 1e-9) < required) return;
+        }
+        lastQueueDispatch = now;
+        if (!ResourceTrackerDirectBridge.requestBackgroundQueuePass()) {
+            android.util.Log.d("KittensBackgroundQueue", "Game WebView absent; purchase will catch up on next app open");
         }
     }
 
