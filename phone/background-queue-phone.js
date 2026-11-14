@@ -51,28 +51,50 @@
    }
    return false;
  }
- function runIfDue(source){
-   if(busy||!activeGame()||!owns())return false;
-   if(!document.hidden)return false; // foreground already advances its queue
+ async function serverConfirmsPhoneOwnership(){
+   var sync=global.KittensLiveSyncPhone;
+   if(!sync||typeof sync.getStatus!=='function')return true;
+   var status=sync.getStatus(),cfg=status.config;
+   if(!status.configured)return true;
+   if(status.role!=='owner'||!cfg||!cfg.endpoint||!cfg.sessionId||!cfg.deviceToken)return false;
+   // The native snapshot may be stale if a watch handoff occurred while the
+   // phone WebView was suspended. Verify canonical ownership before spending.
+   var controller=typeof AbortController==='function'?new AbortController():null;
+   var abort=controller?setTimeout(function(){controller.abort();},4000):null;
+   try{
+     var endpoint=cfg.endpoint.replace(/\\/+$/,'')+'/api/session/'+encodeURIComponent(cfg.sessionId)+'/state';
+     var reply=await fetch(endpoint,{
+       method:'GET',
+       headers:{'x-device-id':'phone','x-device-token':cfg.deviceToken},
+       cache:'no-store',
+       signal:controller?controller.signal:undefined
+     });
+     if(!reply.ok)return false;
+     var data=await reply.json();
+     return !!(data&&data.ok&&data.state&&data.state.ownerDeviceId==='phone');
+   }catch(e){console.warn('Background queue ownership verification unavailable:',e);return false;}
+   finally{if(abort)clearTimeout(abort);}
+ }
+ async function runIfDue(source){
+   if(busy||!activeGame()||!owns()||!document.hidden)return false;
    if(!game.time.queue.queueItems.length)return false;
    busy=true;
    try{
-     // Existing game redshift is queue-aware, and updates the exact authoritative
-     // game state; if it cannot handle a purchase, the regular queue update
-     // receives an additional opportunity on the next eligible day.
+     if(!await serverConfirmsPhoneOwnership())return false;
+     if(!document.hidden||!owns())return false;
+     // Use the canonical game engine for accurate cost/automation handling.
      game.time.calculateRedshift();
      game.time.queue.update();
      game.save();
+     publish(true);
      if(global.KittensLiveSyncPhone&&typeof KittensLiveSyncPhone.commitNow==='function') {
        KittensLiveSyncPhone.commitNow().catch(function(e){console.warn('Background queue sync commit failed',e);});
      }
-     publish(true);
      return true;
    }catch(e){
      console.error('Background queue execution failed:',e);
-     publish(true);
      return false;
-   }finally{busy=false;}
+   }finally{busy=false;publish(true);}
  }
  function init(){
    if(timer)return;
