@@ -86,6 +86,11 @@
      game.time.calculateRedshift();
      game.time.queue.update();
      game.save();
+     // After a background purchase, immediately refresh the Android status-bar
+     // balance and production snapshot rather than extrapolate the old amount.
+     if(global.KittensResourceTracker&&typeof KittensResourceTracker.sync==='function'){
+       KittensResourceTracker.sync(true);
+     }
      publish(true);
      if(global.KittensLiveSyncPhone&&typeof KittensLiveSyncPhone.commitNow==='function') {
        KittensLiveSyncPhone.commitNow().catch(function(e){console.warn('Background queue sync commit failed',e);});
