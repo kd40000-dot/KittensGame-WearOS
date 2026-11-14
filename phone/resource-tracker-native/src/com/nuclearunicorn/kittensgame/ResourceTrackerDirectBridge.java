@@ -65,7 +65,7 @@ public final class ResourceTrackerDirectBridge {
             new JSONObject(json);
             context.getSharedPreferences(ResourceTrackerService.PREFS, Context.MODE_PRIVATE)
                 .edit().putString("queue_snapshot", json).apply();
-            return "{\\"ok\\":true}";
+            return new JSONObject().put("ok", true).toString();
         } catch (Throwable error) { return error(error); }
     }
 
