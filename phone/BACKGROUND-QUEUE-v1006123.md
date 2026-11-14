@@ -30,4 +30,10 @@ When Live Sync is configured but Cloudflare cannot be contacted, background purc
 
 Compiled Android 36 native Java via GitHub Actions `Build Phone Resource Tracker Native Patch`, with latest class DEX artifact produced from the current service + bridge sources. Node VM simulation exercised the display-to-native queue snapshot (including two distinct resources), positive phone ownership, watch ownership denial, mirror denial, standalone mode, and foreground denial. APK rebuilt with apktool, zipaligned, signed with the existing private certificate (SHA-256 `cee878525f494d32a8652178f37697e1e34be015f23b14f67c7db77ecefb76d5`), and verified v2/v3 signature and ZIP integrity. Device-side background JavaScript execution requires physical testing.
 
-v1006123 APK SHA-256 `398d403d90a8c1e69f49af54a23fd77db323410528699bca3ce66ca9c6f4a5de`.
+v1006123 APK SHA-256 `8fac538bd8b870a0866b23f148d9d118c3c34aeb590299a6229878868ba0b4ea`.
+
+## Fast rollback without uninstalling
+
+An additional APK `Kittens-Phone-ROLLBACK-PreBackgroundQueue-v1006124.apk` contains the pre-feature 1006122 application assets and native DEX byte-for-byte unchanged, except that its Android manifest versionCode is **1006124** so it can install over the background-queue test build (1006123) without Android rejecting a downgrade. Same signing certificate; no uninstall or clearing saved data required. Rollback APK SHA-256: `2598235650b200532c21078776e5e6d12b7746f3d751d8e44e61dd4f90db9281`.
+
+The v1006123 background executor now explicitly calls `KittensResourceTracker.sync(true)` after saving a purchase to update the Android status-bar counter from the actual new resource balance.
